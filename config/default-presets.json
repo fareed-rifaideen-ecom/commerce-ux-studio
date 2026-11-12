@@ -1,0 +1,90 @@
+{
+"version": "1.0.0",
+"global_settings": {
+"stock_calc_mode": "grouped_color",
+"primary_visual_attr": "pa_color",
+"secondary_visual_attrs": ["pa_groupset", "pa_wheelset", "pa_spec"],
+"dimensional_attrs": ["pa_size", "pa_frame-size"],
+"tie_breaker": "price_desc",
+"include_backorders": "yes",
+"zero_stock_behavior": "freeze_last",
+"parent_gallery_mode": "winner_plus_colors",
+"catalog_hover_mode": "angle_2",
+"catalog_card_preset": "specialized_spec",
+"catalog_max_swatches": 4,
+"oos_swatch_behavior": "clickable_preview",
+"auto_select_winner": "yes",
+"mobile_gallery_layout": "floating_right",
+"show_slide_counter": "yes",
+"enable_delivery_block": "yes",
+"default_home_lead": "4-7 days",
+"default_home_cost": "$75.00",
+"default_pickup_lead": "6-10 days",
+"default_low_stock_limit": 2,
+"enable_complete_ride": "yes",
+"enable_product_group_schema": "yes",
+"enable_deep_link_ssr": "yes",
+"trigger_on_order": "yes",
+"trigger_on_admin_save": "yes",
+"trigger_on_csv_import": "yes",
+"trigger_on_odoo_webhook": "yes"
+},
+"presets": [
+{
+"rule_type": "preset",
+"title": "Specialized Technical Spec Card & PDP",
+"priority": 10,
+"status": "active",
+"conditions": {
+"match": "all",
+"rules": []
+},
+"settings": {
+"preset_slug": "specialized_spec",
+"card_bg_style": "soft_grey",
+"swatch_position": "below_image",
+"swatch_split_style": "horizontal_50_50",
+"show_compare_checkbox": "yes",
+"show_spec_subtitle": "yes",
+"show_financing_line": "yes",
+"pdp_delivery_cards": "yes"
+}
+},
+{
+"rule_type": "preset",
+"title": "Pinarello Minimalist Showroom Card & PDP",
+"priority": 20,
+"status": "active",
+"conditions": {
+"match": "all",
+"rules": []
+},
+"settings": {
+"preset_slug": "pinarello_showroom",
+"card_bg_style": "light_studio",
+"swatch_position": "inside_image_bottom_left",
+"swatch_finish": "metallic_gradient",
+"show_top_right_spec": "yes",
+"show_uppercase_tagline": "yes",
+"pdp_delivery_cards": "yes"
+}
+},
+{
+"rule_type": "preset",
+"title": "Zara Apparel Quick-Add Card",
+"priority": 30,
+"status": "active",
+"conditions": {
+"match": "all",
+"rules": []
+},
+"settings": {
+"preset_slug": "zara_quick_add",
+"card_bg_style": "clean_white",
+"swatch_position": "below_title",
+"enable_quick_add_sizes": "yes",
+"pdp_delivery_cards": "no"
+}
+}
+]
+}
