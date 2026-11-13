@@ -26,7 +26,8 @@ class CUX_Variation_Fields {
 			return;
 		}
 
-		add_action( 'woocommerce_product_after_variable_attributes', array( __CLASS__, 'render_variation_fields' ), 15, 3 );
+		// Hook right after variation pricing so it appears near the top of the variation panel, as well as standard variable attributes.
+		add_action( 'woocommerce_variation_options_pricing', array( __CLASS__, 'render_variation_fields' ), 20, 3 );
 		add_action( 'woocommerce_save_product_variation', array( __CLASS__, 'save_variation_fields' ), 15, 2 );
 		add_action( 'admin_footer', array( __CLASS__, 'render_variation_gallery_js' ) );
 	}
@@ -34,28 +35,27 @@ class CUX_Variation_Fields {
 	/**
 	 * Render custom fields inside each variation row in WP Admin.
 	 *
-	 * @param int     $loop           Variation loop index.
-	 * @param array   $variation_data Variation data array.
-	 * @param WP_Post $variation      Variation post object.
+	 * @param int   $loop           Variation loop index.
+	 * @param array $variation_data Variation data array.
+	 * @param mixed $variation      Variation post object.
 	 */
-	public static function render_variation_fields( int $loop, array $variation_data, WP_Post $variation ): void {
-		$variation_id    = (int) $variation->ID;
+	public static function render_variation_fields( $loop, $variation_data, $variation ): void {
+		$variation_id    = is_object( $variation ) && isset( $variation->ID ) ? (int) $variation->ID : 0;
+		if ( ! $variation_id ) {
+			return;
+		}
 		$gallery_ids_raw = (string) get_post_meta( $variation_id, '_wc_variation_gallery_ids', true );
+		// Fallback to Flatsome's native variation gallery meta if present.
+		if ( empty( $gallery_ids_raw ) ) {
+			$gallery_ids_raw = (string) get_post_meta( $variation_id, '_wc_additional_variation_images', true );
+		}
 		$image_ids       = array_filter( array_map( 'absint', explode( ',', $gallery_ids_raw ) ) );
 		$pickup_status   = (string) get_post_meta( $variation_id, '_cux_pickup_status', true );
 		$restock_eta     = (string) get_post_meta( $variation_id, '_cux_restock_eta', true );
 		$low_stock_limit = (string) get_post_meta( $variation_id, '_cux_low_stock_limit', true );
 		$spec_note       = (string) get_post_meta( $variation_id, '_cux_var_spec_note', true );
 		?>
-		<div class="form-row form-row-full cux-variation-studio-box" style="margin: 12px 0; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
-			<p style="margin: 0 0 8px; font-weight: 600; color: #0f172a;">
-				<?php esc_html_e( 'Commerce UX Studio — Variation Gallery & Fulfilment Settings', 'commerce-ux-studio' ); ?>
-			</p>
-
-			<!-- 1. Variation-Specific Additional Gallery Images -->
-			<div class="cux-var-gallery-wrapper" style="margin-bottom: 12px;">
-				<label style="display: block; font-size: 12px; margin-bottom: 6px; color: #334155;">
-					<?php esc_html_e( 'Variation Specific Extra Angles (Optional — leave empty to inherit from the Visual Gallery Matrix tab):', 'commerce-ux-studio' ); ?>
+		<div class="form-row form-row-full cux-variation-studio-box" style="clear: both; margin: 12px 0; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
 				</label>
 				<input type="hidden" class="cux-var-gallery-input" name="cux_var_gallery_ids[<?php echo esc_attr( (string) $loop ); ?>]" value="<?php echo esc_attr( implode( ',', $image_ids ) ); ?>" />
 				<div class="cux-var-gallery-thumbs" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
@@ -114,11 +114,15 @@ class CUX_Variation_Fields {
 	 * @param int $variation_id Variation ID.
 	 * @param int $i            Loop index.
 	 */
-	public static function save_variation_fields( int $variation_id, int $i ): void {
+	public static function save_variation_fields( $variation_id, $i ): void {
+		$variation_id = (int) $variation_id;
 		if ( isset( $_POST['cux_var_gallery_ids'][ $i ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$raw       = sanitize_text_field( wp_unslash( $_POST['cux_var_gallery_ids'][ $i ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$clean_ids = array_filter( array_map( 'absint', explode( ',', $raw ) ) );
-			update_post_meta( $variation_id, '_wc_variation_gallery_ids', implode( ',', $clean_ids ) );
+			$csv_str   = implode( ',', $clean_ids );
+			update_post_meta( $variation_id, '_wc_variation_gallery_ids', $csv_str );
+			// Also sync with Flatsome's native variation gallery meta key so both boxes stay in sync!
+			update_post_meta( $variation_id, '_wc_additional_variation_images', $csv_str );
 		}
 
 		if ( isset( $_POST['cux_pickup_status'][ $i ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
