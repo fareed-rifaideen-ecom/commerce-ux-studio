@@ -28,8 +28,9 @@ class CUX_Product_Metabox {
 			return;
 		}
 
-		add_filter( 'woocommerce_product_data_tabs', array( __CLASS__, 'add_product_data_tab' ), 35 );
-		add_action( 'woocommerce_product_data_panels', array( __CLASS__, 'render_product_data_panel' ) );
+		// Run at priority 99 so Flatsome's custom tabs do not overwrite our tab.
+		add_filter( 'woocommerce_product_data_tabs', array( __CLASS__, 'add_product_data_tab' ), 99 );
+		add_action( 'woocommerce_product_data_panels', array( __CLASS__, 'render_product_data_panel' ), 99 );
 		add_action( 'woocommerce_process_product_meta', array( __CLASS__, 'save_product_data_panel' ), 20, 1 );
 		add_action( 'admin_footer', array( __CLASS__, 'render_matrix_media_js' ) );
 	}
@@ -40,12 +41,15 @@ class CUX_Product_Metabox {
 	 * @param array $tabs Existing product data tabs.
 	 * @return array
 	 */
-	public static function add_product_data_tab( array $tabs ): array {
+	public static function add_product_data_tab( $tabs ): array {
+		if ( ! is_array( $tabs ) ) {
+			$tabs = array();
+		}
 		$tabs['cux_ux_studio'] = array(
 			'label'    => __( 'UX Studio & Galleries', 'commerce-ux-studio' ),
 			'target'   => 'cux_ux_studio_data_panel',
-			'class'    => array( 'show_if_simple', 'show_if_variable' ),
-			'priority' => 65,
+			'class'    => array(),
+			'priority' => 25,
 		);
 		return $tabs;
 	}
@@ -325,19 +329,33 @@ class CUX_Product_Metabox {
 			return array();
 		}
 
-		$settings      = CUX_Inheritance_Engine::get_global_settings();
-		$primary_attr  = $settings['primary_visual_attr'] ?? 'pa_color';
-		$sec_attrs     = (array) ( $settings['secondary_visual_attrs'] ?? array() );
-		$attributes    = $product->get_attributes();
-		$primary_terms = array();
-		$sec_terms_map = array();
+		$settings       = CUX_Inheritance_Engine::get_global_settings();
+		$primary_attr   = $settings['primary_visual_attr'] ?? 'pa_color';
+		$primary_group  = array_unique( array( $primary_attr, 'pa_color', 'pa_colour', 'color', 'colour' ) );
+		$sec_attrs      = (array) ( $settings['secondary_visual_attrs'] ?? array() );
+		$attributes     = $product->get_attributes();
+		$primary_terms  = array();
+		$sec_terms_map  = array();
 
 		foreach ( $attributes as $attr_name => $attr_obj ) {
 			if ( ! is_object( $attr_obj ) ) {
 				continue;
 			}
-			$is_primary   = ( $attr_name === $primary_attr || 'pa_' . $attr_name === $primary_attr );
-			$is_secondary = in_array( $attr_name, $sec_attrs, true ) || in_array( 'pa_' . $attr_name, $sec_attrs, true );
+
+			$clean_name   = strtolower( (string) $attr_name );
+			$is_primary   = in_array( $clean_name, $primary_group, true ) || in_array( 'pa_' . $clean_name, $primary_group, true );
+			$is_secondary = in_array( $clean_name, $sec_attrs, true ) || in_array( 'pa_' . $clean_name, $sec_attrs, true );
+
+			// Also check if admin marked this attribute's role in Products > Attributes.
+			if ( $attr_obj->is_taxonomy() && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+				$attr_id   = wc_attribute_taxonomy_id_by_name( $attr_name );
+				$saved_role = $attr_id ? get_option( "cux_attr_role_{$attr_id}", '' ) : '';
+				if ( 'visual_primary' === $saved_role ) {
+					$is_primary = true;
+				} elseif ( 'visual_secondary' === $saved_role ) {
+					$is_secondary = true;
+				}
+			}
 
 			if ( ! $is_primary && ! $is_secondary ) {
 				continue;
