@@ -1,0 +1,165 @@
+/
+
+Commerce UX Studio - WP Admin Dashboard Styles
+*/
+.cux-admin-wrap {
+max-width: 1280px;
+margin: 20px 20px 40px 0;
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.cux-admin-header {
+background: #ffffff;
+border: 1px solid #dcdcde;
+border-radius: 8px;
+padding: 20px 24px 0;
+margin-bottom: 24px;
+box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cux-brand {
+display: flex;
+align-items: center;
+gap: 14px;
+margin-bottom: 18px;
+}
+
+.cux-brand .dashicons {
+font-size: 32px;
+width: 32px;
+height: 32px;
+color: #1d2327;
+background: #f0f0f1;
+padding: 10px;
+border-radius: 8px;
+}
+
+.cux-brand h1 {
+margin: 0;
+padding: 0;
+font-size: 22px;
+font-weight: 600;
+color: #1d2327;
+}
+
+.cux-brand p {
+margin: 4px 0 0;
+color: #646970;
+font-size: 13px;
+}
+
+.cux-version {
+display: inline-block;
+background: #2271b1;
+color: #fff;
+padding: 1px 7px;
+border-radius: 10px;
+font-size: 11px;
+font-weight: 600;
+margin-left: 6px;
+}
+
+.cux-nav-tabs {
+display: flex;
+flex-wrap: wrap;
+gap: 6px;
+border-top: 1px solid #f0f0f1;
+padding-top: 10px;
+}
+
+.cux-tab {
+text-decoration: none;
+color: #50575e;
+font-weight: 500;
+font-size: 13px;
+padding: 8px 14px;
+border-bottom: 3px solid transparent;
+transition: all 0.15s ease;
+}
+
+.cux-tab:hover {
+color: #2271b1;
+}
+
+.cux-tab.is-active {
+color: #1d2327;
+font-weight: 600;
+border-bottom-color: #2271b1;
+}
+
+.cux-grid-3 {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+gap: 20px;
+}
+
+.cux-grid-2 {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+gap: 20px;
+}
+
+.cux-card {
+background: #ffffff;
+border: 1px solid #dcdcde;
+border-radius: 8px;
+padding: 20px 24px;
+box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.cux-card h3 {
+margin-top: 0;
+font-size: 16px;
+border-bottom: 1px solid #f0f0f1;
+padding-bottom: 10px;
+}
+
+.cux-status-list {
+margin: 0;
+padding: 0;
+list-style: none;
+}
+
+.cux-status-list li {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 0;
+border-bottom: 1px solid #f6f7f7;
+}
+
+.cux-status-list li:last-child {
+border-bottom: none;
+}
+
+.cux-badge {
+display: inline-block;
+padding: 3px 10px;
+border-radius: 12px;
+font-size: 12px;
+font-weight: 600;
+}
+
+.cux-badge-success {
+background: #edfaef;
+color: #007017;
+}
+
+.cux-badge-error {
+background: #fcf0f1;
+color: #d63638;
+}
+
+.cux-muted {
+color: #646970;
+font-size: 13px;
+line-height: 1.5;
+}
+
+.cux-sync-progress {
+margin-top: 14px;
+padding: 10px 12px;
+background: #f0f6fc;
+border-left: 4px solid #2271b1;
+font-size: 13px;
+}
