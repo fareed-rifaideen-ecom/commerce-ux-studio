@@ -253,6 +253,15 @@ class CUX_Admin_Menu {
 	public static function render_dashboard_page(): void {
 		$health   = CUX_Activator::get_database_health();
 		$settings = CUX_Inheritance_Engine::get_global_settings();
+
+		$phase2_files = array(
+			'Attribute Fields'  => 'includes/admin/class-cux-attribute-fields.php',
+			'Taxonomy Fields'   => 'includes/admin/class-cux-taxonomy-fields.php',
+			'Product Metabox'   => 'includes/admin/class-cux-product-metabox.php',
+			'Variation Fields'  => 'includes/admin/class-cux-variation-fields.php',
+			'Bulk & Quick Edit' => 'includes/admin/class-cux-bulk-quick-edit.php',
+		);
+
 		self::render_header( 'cux-studio', __( 'Dashboard & Catalog Sync Health', 'commerce-ux-studio' ) );
 		?>
 			<div class="cux-grid-3">
@@ -279,20 +288,19 @@ class CUX_Admin_Menu {
 				</div>
 
 				<div class="cux-card">
-					<h3><?php esc_html_e( 'Flatsome & Catalog Configuration', 'commerce-ux-studio' ); ?></h3>
+					<h3><?php esc_html_e( 'Installed Module Files (Git Check)', 'commerce-ux-studio' ); ?></h3>
 					<ul class="cux-status-list">
-						<li>
-							<span><?php esc_html_e( 'Default Card Preset:', 'commerce-ux-studio' ); ?></span>
-							<strong><?php echo esc_html( $settings['catalog_card_preset'] ); ?></strong>
-						</li>
-						<li>
-							<span><?php esc_html_e( 'Shop Grid Hover Image Mode:', 'commerce-ux-studio' ); ?></span>
-							<strong><?php echo esc_html( $settings['catalog_hover_mode'] ); ?></strong>
-						</li>
-						<li>
-							<span><?php esc_html_e( 'Out-of-Stock Swatch Mode:', 'commerce-ux-studio' ); ?></span>
-							<strong><?php echo esc_html( $settings['oos_swatch_behavior'] ); ?></strong>
-						</li>
+						<?php
+						foreach ( $phase2_files as $label => $rel_path ) :
+							$exists = file_exists( CUX_STUDIO_PATH . $rel_path );
+							?>
+							<li>
+								<span><?php echo esc_html( $label ); ?>:</span>
+								<strong class="cux-badge <?php echo $exists ? 'cux-badge-success' : 'cux-badge-error'; ?>">
+									<?php echo $exists ? esc_html__( 'Loaded', 'commerce-ux-studio' ) : esc_html__( 'Not Found on Server', 'commerce-ux-studio' ); ?>
+								</strong>
+							</li>
+						<?php endforeach; ?>
 					</ul>
 				</div>
 
