@@ -1,0 +1,792 @@
+<?php
+/**
+ * Single Product Page (PDP) Swatches, Flatsome Flickity Gallery Bridge,
+ * Omnichannel Delivery Switcher & "Complete Your Ride" Cross-Sell Configurator.
+ *
+ * File Path: includes/frontend/class-cux-pdp-renderer.php
+ *
+ * @package Commerce_UX_Studio
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class CUX_PDP_Renderer {
+
+	/**
+	 * Initialize frontend PDP hooks and AJAX handlers.
+	 */
+	public static function init(): void {
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ), 30 );
+		add_filter( 'body_class', array( __CLASS__, 'add_pdp_body_classes' ) );
+
+		// 1. Render Technical Spec Subtitle & Badges below Single Product Title.
+		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_pdp_spec_subtitle' ), 6 );
+
+		// 2. Enhance Variation Attribute Dropdowns with Visual Swatches, Size Guide & Spec Radio Cards.
+		add_filter( 'woocommerce_dropdown_variation_attribute_options_html', array( __CLASS__, 'render_custom_swatch_controls' ), 20, 2 );
+
+		// 3. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
+		add_action( 'woocommerce_before_variations_form', array( __CLASS__, 'render_pdp_json_payload' ), 10 );
+
+		// 4. Render Omnichannel Delivery Switcher (Ship to Home vs In-Store Pickup) & Low Stock Warning above Add to Cart button.
+		add_action( 'woocommerce_before_single_variation', array( __CLASS__, 'render_delivery_and_low_stock_block' ), 25 );
+
+		// 5. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
+		add_action( 'woocommerce_after_add_to_cart_form', array( __CLASS__, 'render_complete_your_ride_block' ), 15 );
+
+		// 6. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
+		add_action( 'wp_ajax_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
+		add_action( 'wp_ajax_nopriv_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
+	}
+
+	/**
+	 * Enqueue frontend CSS and JS on WooCommerce pages.
+	 */
+	public static function enqueue_frontend_assets(): void {
+		if ( ! function_exists( 'is_woocommerce' ) || ( ! is_woocommerce() && ! is_cart() && ! is_checkout() && ! is_front_page() ) ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'cux-frontend-ux',
+			CUX_STUDIO_URL . 'assets/css/frontend-ux.css',
+			array(),
+			CUX_STUDIO_VERSION
+		);
+
+		wp_enqueue_script(
+			'cux-frontend-ux',
+			CUX_STUDIO_URL . 'assets/js/frontend-ux.js',
+			array( 'jquery' ),
+			CUX_STUDIO_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'cux-frontend-ux',
+			'cuxFrontendVars',
+			array(
+				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+				'wcAjaxUrl'      => class_exists( 'WC_AJAX' ) ? WC_AJAX::get_endpoint( '%%endpoint%%' ) : '',
+				'nonce'          => wp_create_nonce( 'cux_frontend_nonce' ),
+				'i18nChooseOpts' => __( 'Choose Options', 'commerce-ux-studio' ),
+				'i18nAddToCart'  => __( 'Add to Cart', 'commerce-ux-studio' ),
+				'i18nOutOfStock' => __( 'Out of Stock', 'commerce-ux-studio' ),
+				'i18nAdded'      => __( 'Added to Cart', 'commerce-ux-studio' ),
+				'i18nLowStock'   => __( 'Low Stock', 'commerce-ux-studio' ),
+				'i18nInStock'    => __( 'In Stock', 'commerce-ux-studio' ),
+			)
+		);
+	}
+
+	/**
+	 * Add mobile gallery layout and preset classes to the page body.
+	 *
+	 * @param array $classes Existing body classes.
+	 * @return array
+	 */
+	public static function add_pdp_body_classes( array $classes ): array {
+		if ( function_exists( 'is_product' ) && is_product() ) {
+			$product_id = get_the_ID();
+			if ( $product_id ) {
+				$config            = CUX_Inheritance_Engine::resolve_product_config( (int) $product_id );
+				$mobile_layout     = $config['mobile_gallery_layout'] ?? 'floating_right';
+				$preset            = $config['catalog_card_preset'] ?? 'specialized_spec';
+				$classes[]         = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
+				$classes[]         = 'cux-pdp-preset-' . sanitize_html_class( $preset );
+			}
+		}
+		return $classes;
+	}
+
+	/**
+	 * 1. Render Technical Spec Subtitle, Tagline, and Badges below the Single Product Title.
+	 */
+	public static function render_pdp_spec_subtitle(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id = $product->get_id();
+		$subtitle   = (string) get_post_meta( $product_id, '_cux_spec_subtitle', true );
+		$tagline    = (string) get_post_meta( $product_id, '_cux_tagline', true );
+		$badge_tl   = (string) get_post_meta( $product_id, '_cux_badge_tl', true );
+
+		if ( empty( $subtitle ) && empty( $tagline ) && empty( $badge_tl ) ) {
+			return;
+		}
+		?>
+		<div class="cux-pdp-header-meta">
+			<?php if ( ! empty( $badge_tl ) ) : ?>
+				<span class="cux-pdp-badge-pill"><?php echo esc_html( $badge_tl ); ?></span>
+			<?php endif; ?>
+			<?php if ( ! empty( $subtitle ) ) : ?>
+				<div class="cux-pdp-spec-subtitle"><?php echo esc_html( $subtitle ); ?></div>
+			<?php endif; ?>
+			<?php if ( ! empty( $tagline ) ) : ?>
+				<div class="cux-pdp-tagline"><?php echo esc_html( $tagline ); ?></div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * 2. Render visual Swatches (Color Circles, Size Boxes, or Rich Spec Radio Cards) alongside the hidden native <select>.
+	 *
+	 * @param string $html Original WooCommerce <select> HTML.
+	 * @param array  $args Dropdown arguments.
+	 * @return string
+	 */
+	public static function render_custom_swatch_controls( string $html, array $args ): string {
+		$product   = $args['product'] ?? null;
+		$attribute = $args['attribute'] ?? '';
+		$options   = $args['options'] ?? array();
+
+		if ( ! is_object( $product ) || empty( $attribute ) || empty( $options ) ) {
+			return $html;
+		}
+
+		$product_id = $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
+
+		// Determine role and swatch style automatically.
+		$attr_clean = strtolower( (string) $attribute );
+		$role       = 'dimensional';
+		$style      = 'size_box';
+
+		$primary_attr = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
+		$visual_attrs = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
+
+		if ( $attr_clean === $primary_attr || false !== strpos( $attr_clean, 'color' ) || false !== strpos( $attr_clean, 'colour' ) ) {
+			$role  = 'visual_primary';
+			$style = 'color_circle';
+		} elseif ( in_array( $attr_clean, $visual_attrs, true ) || false !== strpos( $attr_clean, 'groupset' ) || false !== strpos( $attr_clean, 'spec' ) || false !== strpos( $attr_clean, 'wheelset' ) ) {
+			$role  = 'visual_secondary';
+			$style = 'radio_card';
+		}
+
+		// Allow explicit override from Products > Attributes if configured.
+		if ( taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
+			$saved_type = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
+			if ( ! empty( $saved_type ) ) {
+				$style = $saved_type;
+			}
+		}
+
+		if ( 'dropdown' === $style ) {
+			return $html;
+		}
+
+		// Check if Size Guide link should be rendered on this attribute row.
+		$size_guide_block = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
+		if ( empty( $size_guide_block ) ) {
+			$size_guide_block = (string) ( $config['size_guide_id'] ?? '' );
+		}
+		$show_size_guide = ( 'dimensional' === $role && ! empty( $size_guide_block ) );
+
+		// Build map of option statuses (stock, ETA, price delta) from precomputed cache.
+		$option_meta = self::build_attribute_option_meta( $product, $attribute, $options, $cache );
+		$selected    = isset( $args['selected'] ) ? (string) $args['selected'] : '';
+		$oos_mode    = $config['oos_swatch_behavior'] ?? 'clickable_preview';
+
+		ob_start();
+		?>
+		<div class="cux-swatch-control-wrap"
+			data-attribute="<?php echo esc_attr( 'attribute_' . sanitize_title( $attribute ) ); ?>"
+			data-attr-raw="<?php echo esc_attr( $attribute ); ?>"
+			data-role="<?php echo esc_attr( $role ); ?>"
+			data-style="<?php echo esc_attr( $style ); ?>"
+			data-oos-mode="<?php echo esc_attr( $oos_mode ); ?>">
+
+			<div class="cux-swatch-header-bar">
+				<span class="cux-selected-term-label">
+					<?php
+					if ( ! empty( $selected ) && isset( $option_meta[ $selected ]['name'] ) ) {
+						echo esc_html( $option_meta[ $selected ]['name'] );
+					}
+					?>
+				</span>
+				<?php if ( $show_size_guide ) : ?>
+					<button type="button" class="cux-size-guide-trigger" data-size-guide="<?php echo esc_attr( $size_guide_block ); ?>">
+						<span class="dashicons dashicons-editor-help"></span>
+						<?php esc_html_e( 'Size Guide', 'commerce-ux-studio' ); ?>
+					</button>
+				<?php endif; ?>
+			</div>
+
+			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( wc_attribute_label( $attribute, $product ) ); ?>">
+				<?php
+				foreach ( $options as $option_val ) :
+					$meta = $option_meta[ $option_val ] ?? null;
+					if ( ! $meta ) {
+						continue;
+					}
+
+					// Hide completely if global setting is 'hide_completely' and option is out of stock across all combinations.
+					if ( 'hide_completely' === $oos_mode && ! $meta['has_stock'] ) {
+						continue;
+					}
+
+					$is_selected = ( sanitize_title( $selected ) === sanitize_title( $option_val ) );
+					$item_classes = array( 'cux-swatch-item' );
+					if ( $is_selected ) {
+						$item_classes[] = 'is-selected';
+					}
+					if ( ! $meta['has_stock'] ) {
+						$item_classes[] = 'is-out-of-stock';
+						if ( 'crossed_disabled' === $oos_mode ) {
+							$item_classes[] = 'is-disabled';
+						}
+					}
+					?>
+					<button type="button"
+						class="<?php echo esc_attr( implode( ' ', $item_classes ) ); ?>"
+						data-value="<?php echo esc_attr( $option_val ); ?>"
+						data-name="<?php echo esc_attr( $meta['name'] ); ?>"
+						data-slug="<?php echo esc_attr( sanitize_title( $option_val ) ); ?>"
+						role="radio"
+						aria-checked="<?php echo $is_selected ? 'true' : 'false'; ?>"
+						<?php echo ( ! $meta['has_stock'] && 'crossed_disabled' === $oos_mode ) ? 'disabled="disabled"' : ''; ?>
+						title="<?php echo esc_attr( ! empty( $meta['tooltip'] ) ? $meta['name'] . ' — ' . $meta['tooltip'] : $meta['name'] ); ?>">
+
+						<?php if ( 'color_circle' === $style ) : ?>
+							<span class="cux-color-circle-inner" style="background: <?php echo esc_attr( $meta['bg_css'] ); ?>;"></span>
+						<?php elseif ( 'radio_card' === $style ) : ?>
+							<span class="cux-radio-card-top">
+								<strong class="cux-radio-card-title"><?php echo esc_html( $meta['name'] ); ?></strong>
+								<?php if ( ! empty( $meta['restock_eta'] ) && ! $meta['has_stock'] ) : ?>
+									<span class="cux-eta-pill"><?php echo esc_html( $meta['restock_eta'] ); ?></span>
+								<?php elseif ( $meta['has_stock'] ) : ?>
+									<span class="cux-stock-pill"><?php esc_html_e( 'In Stock', 'commerce-ux-studio' ); ?></span>
+								<?php else : ?>
+									<span class="cux-oos-pill"><?php esc_html_e( 'Out of Stock', 'commerce-ux-studio' ); ?></span>
+								<?php endif; ?>
+							</span>
+							<?php if ( ! empty( $meta['price_html'] ) ) : ?>
+								<span class="cux-radio-card-price"><?php echo wp_kses_post( $meta['price_html'] ); ?></span>
+							<?php endif; ?>
+						<?php else : ?>
+							<span class="cux-size-box-text"><?php echo esc_html( $meta['name'] ); ?></span>
+							<?php if ( ! empty( $meta['restock_eta'] ) && ! $meta['has_stock'] ) : ?>
+								<small class="cux-size-eta"><?php echo esc_html( $meta['restock_eta'] ); ?></small>
+							<?php endif; ?>
+						<?php endif; ?>
+					</button>
+				<?php endforeach; ?>
+			</div>
+
+			<div class="cux-native-select-hidden" style="display:none !important;">
+				<?php echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			</div>
+		</div>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Build metadata (label, swatch CSS gradient, stock status, restock ETA) for each option of an attribute.
+	 *
+	 * @param WC_Product $product   Variable product.
+	 * @param string     $attribute Attribute name.
+	 * @param array      $options   Option values.
+	 * @param array      $cache     Precomputed product cache.
+	 * @return array
+	 */
+	private static function build_attribute_option_meta( WC_Product $product, string $attribute, array $options, array $cache ): array {
+		$result      = array();
+		$avail_map   = $cache['availability_matrix'] ?? array();
+		$attr_lookup = strtolower( (string) $attribute );
+		$no_pa       = 0 === strpos( $attr_lookup, 'pa_' ) ? substr( $attr_lookup, 3 ) : $attr_lookup;
+
+		foreach ( $options as $opt_val ) {
+			$slug    = sanitize_title( (string) $opt_val );
+			$name    = (string) $opt_val;
+			$hex_1   = '#334155';
+			$hex_2   = '';
+			$split   = 'horizontal';
+			$tooltip = '';
+
+			if ( taxonomy_exists( $attribute ) ) {
+				$term = get_term_by( 'slug', $opt_val, $attribute );
+				if ( ! $term ) {
+					$term = get_term_by( 'name', $opt_val, $attribute );
+				}
+				if ( $term && ! is_wp_error( $term ) ) {
+					$name    = $term->name;
+					$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
+					$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
+					$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
+					$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
+				}
+			}
+
+			// Fallback color lookup from precomputed in_stock_colors or intelligent slug guesser.
+			if ( empty( $hex_1 ) && ! empty( $cache['in_stock_colors'] ) ) {
+				foreach ( $cache['in_stock_colors'] as $c_row ) {
+					if ( isset( $c_row['slug'] ) && $c_row['slug'] === $slug ) {
+						$hex_1 = $c_row['hex_1'] ?? '';
+						$hex_2 = $c_row['hex_2'] ?? '';
+						$split = $c_row['split'] ?? 'horizontal';
+						break;
+					}
+				}
+			}
+			if ( empty( $hex_1 ) ) {
+				$hex_1 = self::fallback_hex_from_slug( $slug );
+			}
+
+			$bg_css = $hex_1;
+			if ( ! empty( $hex_2 ) ) {
+				if ( 'angled' === $split ) {
+					$bg_css = "linear-gradient(135deg, {$hex_1} 50%, {$hex_2} 50%)";
+				} elseif ( 'vertical' === $split ) {
+					$bg_css = "linear-gradient(90deg, {$hex_1} 50%, {$hex_2} 50%)";
+				} else {
+					$bg_css = "linear-gradient(180deg, {$hex_1} 50%, {$hex_2} 50%)";
+				}
+			} elseif ( 'metallic' === $split ) {
+				$bg_css = "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5), {$hex_1} 70%)";
+			}
+
+			// Check stock & ETA across availability matrix.
+			$has_stock   = false;
+			$restock_eta = '';
+			$price_html  = '';
+
+			if ( ! empty( $avail_map ) ) {
+				foreach ( $avail_map as $var_data ) {
+					$var_attrs = $var_data['attributes'] ?? array();
+					foreach ( $var_attrs as $k => $v ) {
+						$k_low = strtolower( (string) $k );
+						if ( ( $k_low === $attr_lookup || $k_low === $no_pa || $k_low === 'pa_' . $no_pa ) && ( '' === $v || sanitize_title( (string) $v ) === $slug ) ) {
+							if ( ! empty( $var_data['is_in_stock'] ) ) {
+								$has_stock = true;
+							}
+							if ( empty( $restock_eta ) && ! empty( $var_data['restock_eta'] ) ) {
+								$restock_eta = (string) $var_data['restock_eta'];
+							}
+							if ( empty( $price_html ) && ! empty( $var_data['price_html'] ) ) {
+								$price_html = (string) $var_data['price_html'];
+							}
+						}
+					}
+				}
+			} else {
+				$has_stock = true;
+			}
+
+			$result[ $opt_val ] = array(
+				'name'        => $name,
+				'slug'        => $slug,
+				'bg_css'      => $bg_css,
+				'tooltip'     => $tooltip,
+				'has_stock'   => $has_stock,
+				'restock_eta' => $restock_eta,
+				'price_html'  => $price_html,
+			);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * 3. Inject deduplicated Visual Gallery slide markup & Availability JSON before the variations form.
+	 */
+	public static function render_pdp_json_payload(): void {
+		global $product;
+		if ( ! is_object( $product ) || ! $product->is_type( 'variable' ) ) {
+			return;
+		}
+
+		$product_id = $product->get_id();
+		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
+
+		// If product has not been synced yet, run a one-time sync now so cache is ready.
+		if ( empty( $cache ) && class_exists( 'CUX_Stock_Calculator' ) ) {
+			CUX_Stock_Calculator::sync_parent_product( $product_id, 'frontend_init' );
+			$cache = CUX_Cache_Manager::get_product_cache( $product_id );
+		}
+
+		// Build pre-rendered Flatsome slide HTML per unique visual hash (deduplicated across sizes!).
+		$slides_by_hash = array();
+		if ( ! empty( $cache['visual_galleries'] ) && is_array( $cache['visual_galleries'] ) ) {
+			foreach ( $cache['visual_galleries'] as $hash => $img_ids ) {
+				$slides = array();
+				foreach ( (array) $img_ids as $att_id ) {
+					$att_id = (int) $att_id;
+					if ( $att_id <= 0 ) {
+						continue;
+					}
+					$full_src   = wp_get_attachment_image_src( $att_id, 'full' );
+					$single_img = wp_get_attachment_image(
+						$att_id,
+						'woocommerce_single',
+						false,
+						array(
+							'class' => 'wp-post-image skip-lazy',
+						)
+					);
+					$thumb_img  = wp_get_attachment_image(
+						$att_id,
+						'woocommerce_gallery_thumbnail',
+						false,
+						array(
+							'class' => 'attachment-woocommerce_thumbnail',
+						)
+					);
+
+					if ( $single_img && $full_src ) {
+						$slides[] = array(
+							'id'       => $att_id,
+							'full_url' => $full_src[0],
+							'full_w'   => $full_src[1] ?? 1200,
+							'full_h'   => $full_src[2] ?? 1200,
+							'main_img' => $single_img,
+							'thumb'    => $thumb_img,
+						);
+					}
+				}
+				if ( ! empty( $slides ) ) {
+					$slides_by_hash[ $hash ] = $slides;
+				}
+			}
+		}
+
+		$frontend_payload = array(
+			'product_id'          => $product_id,
+			'winner_var_id'       => $cache['winner_var_id'] ?? 0,
+			'winner_visual_hash'  => $cache['winner_visual_hash'] ?? '',
+			'primary_visual_attr' => $cache['primary_visual_attr'] ?? 'pa_color',
+			'visual_attrs'        => $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ),
+			'dimensional_attrs'   => $cache['dimensional_attrs'] ?? array( 'pa_size' ),
+			'slides_by_hash'      => $slides_by_hash,
+			'availability_matrix' => $cache['availability_matrix'] ?? array(),
+		);
+		?>
+		<script type="application/json" id="cux-pdp-json-data">
+			<?php echo wp_json_encode( $frontend_payload ); ?>
+		</script>
+		<?php
+	}
+
+	/**
+	 * 4. Render the Omnichannel Delivery Method Switcher (Ship to Home vs. In-Store Pickup) & Low Stock Warning Banner.
+	 */
+	public static function render_delivery_and_low_stock_block(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id = $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+
+		if ( ( $config['enable_delivery_block'] ?? 'yes' ) !== 'yes' ) {
+			return;
+		}
+
+		$home_lead   = $config['default_home_lead'] ?? '4-7 days';
+		$home_cost   = $config['default_home_cost'] ?? '$75.00';
+		$pickup_lead = $config['default_pickup_lead'] ?? '6-10 days';
+		?>
+		<div class="cux-fulfilment-wrapper" id="cux-fulfilment-block">
+			<div class="cux-fulfilment-header">
+				<strong><?php esc_html_e( 'Delivery Method', 'commerce-ux-studio' ); ?></strong>
+			</div>
+
+			<div class="cux-delivery-cards-grid">
+				<!-- Card 1: Ship to Home -->
+				<label class="cux-delivery-card is-active" data-method="ship_to_home">
+					<input type="radio" name="cux_delivery_method" value="ship_to_home" checked="checked" />
+					<div class="cux-delivery-card-top">
+						<span class="cux-delivery-title"><?php esc_html_e( 'Ship to Home', 'commerce-ux-studio' ); ?></span>
+						<span class="cux-delivery-lead" id="cux-home-lead-text"><?php echo esc_html( $home_lead ); ?></span>
+					</div>
+					<div class="cux-delivery-card-sub">
+						<span class="cux-status-dot is-available"></span>
+						<span>
+							<?php
+							printf(
+								/* translators: %s: Estimated shipping cost */
+								esc_html__( 'Available • Estimated shipping: %s', 'commerce-ux-studio' ),
+								'<strong id="cux-home-cost-text">' . esc_html( $home_cost ) . '</strong>'
+							);
+							?>
+						</span>
+					</div>
+				</label>
+
+				<!-- Card 2: In-Store Pickup -->
+				<label class="cux-delivery-card" data-method="in_store_pickup">
+					<input type="radio" name="cux_delivery_method" value="in_store_pickup" />
+					<div class="cux-delivery-card-top">
+						<span class="cux-delivery-title"><?php esc_html_e( 'In-Store Pickup', 'commerce-ux-studio' ); ?></span>
+						<span class="cux-delivery-lead" id="cux-pickup-lead-text"><?php echo esc_html( $pickup_lead ); ?></span>
+					</div>
+					<div class="cux-delivery-card-sub" id="cux-pickup-status-line">
+						<span class="cux-status-dot is-available"></span>
+						<span class="cux-pickup-mode-text"><?php esc_html_e( 'Ship to store • Free showroom assembly', 'commerce-ux-studio' ); ?></span>
+					</div>
+				</label>
+			</div>
+
+			<!-- Dynamic Low Stock / Out of Stock Status Banner -->
+			<div class="cux-stock-alert-banner" id="cux-stock-alert-banner" style="display:none;">
+				<span class="cux-stock-alert-dot"></span>
+				<strong class="cux-stock-alert-text"><?php esc_html_e( 'Low Stock', 'commerce-ux-studio' ); ?></strong>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * 5. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
+	 */
+	public static function render_complete_your_ride_block(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id = $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+
+		if ( ( $config['enable_complete_ride'] ?? 'yes' ) !== 'yes' ) {
+			return;
+		}
+
+		// Pull from Native WooCommerce Cross-Sells first, with fallback to _cux_cross_sell_ids.
+		$cross_sell_ids = $product->get_cross_sell_ids();
+		if ( empty( $cross_sell_ids ) ) {
+			$custom_cs = get_post_meta( $product_id, '_cux_cross_sell_ids', true );
+			if ( is_array( $custom_cs ) ) {
+				$cross_sell_ids = $custom_cs;
+			}
+		}
+
+		if ( empty( $cross_sell_ids ) ) {
+			return;
+		}
+
+		$items = array();
+		foreach ( $cross_sell_ids as $cs_id ) {
+			$cs_prod = wc_get_product( $cs_id );
+			if ( $cs_prod && 'publish' === $cs_prod->get_status() && $cs_prod->is_in_stock() ) {
+				$items[] = $cs_prod;
+			}
+		}
+
+		if ( empty( $items ) ) {
+			return;
+		}
+		?>
+		<div class="cux-complete-ride-box" id="cux-complete-your-ride">
+			<div class="cux-cr-header">
+				<h4><?php esc_html_e( 'Complete Your Ride', 'commerce-ux-studio' ); ?></h4>
+				<span class="cux-cr-toggle-icon">&mdash;</span>
+			</div>
+
+			<div class="cux-cr-body">
+				<!-- Compact List View -->
+				<div class="cux-cr-list">
+					<?php
+					foreach ( $items as $idx => $cs_prod ) :
+						$cs_id     = $cs_prod->get_id();
+						$cs_cache  = CUX_Cache_Manager::get_product_cache( $cs_id );
+						$cs_colors = $cs_cache['in_stock_colors'] ?? array();
+						$thumb_url = wp_get_attachment_image_url( $cs_prod->get_image_id(), 'woocommerce_thumbnail' );
+						$sizes     = self::get_product_quick_options( $cs_prod );
+						?>
+						<div class="cux-cr-item"
+							data-index="<?php echo esc_attr( (string) $idx ); ?>"
+							data-product-id="<?php echo esc_attr( (string) $cs_id ); ?>"
+							data-is-variable="<?php echo $cs_prod->is_type( 'variable' ) ? '1' : '0'; ?>">
+
+							<!-- Compact Summary Row -->
+							<div class="cux-cr-summary-row">
+								<div class="cux-cr-thumb">
+									<?php if ( $thumb_url ) : ?>
+										<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $cs_prod->get_name() ); ?>" />
+									<?php endif; ?>
+								</div>
+
+								<div class="cux-cr-info">
+									<?php if ( ! empty( $cs_colors ) ) : ?>
+										<div class="cux-cr-mini-swatches">
+											<?php foreach ( array_slice( $cs_colors, 0, 5 ) as $c_dot ) : ?>
+												<span class="cux-cr-dot"
+													style="background: <?php echo esc_attr( $c_dot['hex_1'] ); ?>;"
+													data-img="<?php echo esc_url( $c_dot['card_img_url'] ); ?>"
+													data-color-slug="<?php echo esc_attr( $c_dot['slug'] ); ?>"
+													title="<?php echo esc_attr( $c_dot['name'] ); ?>"></span>
+											<?php endforeach; ?>
+										</div>
+									<?php endif; ?>
+
+									<a href="<?php echo esc_url( get_permalink( $cs_id ) ); ?>" class="cux-cr-title">
+										<?php echo esc_html( $cs_prod->get_name() ); ?>
+									</a>
+									<div class="cux-cr-price"><?php echo wp_kses_post( $cs_prod->get_price_html() ); ?></div>
+								</div>
+
+								<div class="cux-cr-actions">
+									<?php if ( $cs_prod->is_type( 'variable' ) && ! empty( $sizes ) ) : ?>
+										<button type="button" class="cux-cr-choose-btn">
+											<?php esc_html_e( 'Choose Options', 'commerce-ux-studio' ); ?>
+										</button>
+									<?php else : ?>
+										<button type="button" class="cux-cr-direct-add-btn" data-product-id="<?php echo esc_attr( (string) $cs_id ); ?>">
+											<?php esc_html_e( 'Add to Cart', 'commerce-ux-studio' ); ?>
+										</button>
+									<?php endif; ?>
+								</div>
+							</div>
+
+							<!-- Expandable In-Place Drawer for Variable Cross-Sells -->
+							<?php if ( $cs_prod->is_type( 'variable' ) && ! empty( $sizes ) ) : ?>
+								<div class="cux-cr-drawer" style="display:none;">
+									<div class="cux-cr-drawer-main">
+										<div class="cux-cr-drawer-img">
+											<?php if ( $thumb_url ) : ?>
+												<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $cs_prod->get_name() ); ?>" />
+											<?php endif; ?>
+										</div>
+										<div class="cux-cr-drawer-controls">
+											<strong><?php echo esc_html( $cs_prod->get_name() ); ?></strong>
+											<div class="cux-cr-price"><?php echo wp_kses_post( $cs_prod->get_price_html() ); ?></div>
+
+											<label class="cux-cr-size-label"><?php esc_html_e( 'Select Option:', 'commerce-ux-studio' ); ?></label>
+											<div class="cux-cr-size-pills">
+												<?php foreach ( $sizes as $sz ) : ?>
+													<button type="button"
+														class="cux-cr-var-pill"
+														data-variation-id="<?php echo esc_attr( (string) $sz['var_id'] ); ?>"
+														data-img="<?php echo esc_url( $sz['img_url'] ); ?>">
+														<?php echo esc_html( $sz['label'] ); ?>
+													</button>
+												<?php endforeach; ?>
+											</div>
+
+											<button type="button" class="cux-cr-confirm-add-btn" disabled="disabled" data-product-id="<?php echo esc_attr( (string) $cs_id ); ?>">
+												<?php esc_html_e( 'Add To Cart', 'commerce-ux-studio' ); ?>
+											</button>
+										</div>
+									</div>
+
+									<div class="cux-cr-drawer-footer">
+										<button type="button" class="cux-cr-back-btn">
+											&larr; <?php esc_html_e( 'Back to List', 'commerce-ux-studio' ); ?>
+										</button>
+										<div class="cux-cr-nav-arrows">
+											<button type="button" class="cux-cr-prev-btn" title="<?php esc_attr_e( 'Previous Item', 'commerce-ux-studio' ); ?>">&lsaquo;</button>
+											<button type="button" class="cux-cr-next-btn" title="<?php esc_attr_e( 'Next Item', 'commerce-ux-studio' ); ?>">&rsaquo;</button>
+										</div>
+									</div>
+								</div>
+							<?php endif; ?>
+						</div>
+					<?php endforeach; ?>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Build quick variation pills for a Variable Cross-Sell product.
+	 *
+	 * @param WC_Product $cs_prod Cross-sell variable product.
+	 * @return array
+	 */
+	private static function get_product_quick_options( WC_Product $cs_prod ): array {
+		$pills = array();
+		foreach ( $cs_prod->get_children() as $var_id ) {
+			$var = wc_get_product( $var_id );
+			if ( ! $var || ! $var->is_in_stock() ) {
+				continue;
+			}
+			$attrs = $var->get_variation_attributes( false );
+			$label = implode( ' / ', array_filter( $attrs ) );
+			if ( empty( $label ) ) {
+				$label = '#' . $var_id;
+			}
+			$img_url = wp_get_attachment_image_url( $var->get_image_id(), 'woocommerce_thumbnail' );
+			$pills[] = array(
+				'var_id'  => $var_id,
+				'label'   => strtoupper( $label ),
+				'img_url' => $img_url ? $img_url : '',
+			);
+		}
+		return $pills;
+	}
+
+	/**
+	 * 6. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
+	 */
+	public static function ajax_quick_add_to_cart(): void {
+		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
+
+		$product_id   = isset( $_POST['product_id'] ) ? absint( $_POST['product_id'] ) : 0;
+		$variation_id = isset( $_POST['variation_id'] ) ? absint( $_POST['variation_id'] ) : 0;
+		$quantity     = isset( $_POST['quantity'] ) ? max( 1, absint( $_POST['quantity'] ) ) : 1;
+
+		if ( $product_id <= 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid product.', 'commerce-ux-studio' ) ) );
+		}
+
+		$added = false;
+		if ( $variation_id > 0 ) {
+			$variation  = wc_get_product( $variation_id );
+			$attributes = $variation ? $variation->get_variation_attributes() : array();
+			$added      = WC()->cart->add_to_cart( $product_id, $quantity, $variation_id, $attributes );
+		} else {
+			$added = WC()->cart->add_to_cart( $product_id, $quantity );
+		}
+
+		if ( $added ) {
+			WC_AJAX::get_refreshed_fragments();
+		} else {
+			wp_send_json_error( array( 'message' => __( 'Could not add item to cart.', 'commerce-ux-studio' ) ) );
+		}
+	}
+
+	/**
+	 * Fallback hex color resolver for common color names.
+	 *
+	 * @param string $slug Color slug.
+	 * @return string
+	 */
+	private static function fallback_hex_from_slug( string $slug ): string {
+		$map = array(
+			'black'    => '#18181b',
+			'white'    => '#f8fafc',
+			'red'      => '#dc2626',
+			'blue'     => '#2563eb',
+			'navy'     => '#1e3a8a',
+			'green'    => '#16a34a',
+			'yellow'   => '#eab308',
+			'orange'   => '#ea580c',
+			'grey'     => '#64748b',
+			'gray'     => '#64748b',
+			'silver'   => '#cbd5e1',
+			'gold'     => '#ca8a04',
+			'pink'     => '#db2777',
+			'purple'   => '#7c3aed',
+			'beige'    => '#d6d3d1',
+			'brown'    => '#78350f',
+		);
+
+		foreach ( $map as $word => $hex ) {
+			if ( false !== strpos( $slug, $word ) ) {
+				return $hex;
+			}
+		}
+
+		return '#475569';
+	}
+}
