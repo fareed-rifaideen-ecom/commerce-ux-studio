@@ -400,43 +400,82 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Tab 3: Delivery Box & "Complete Your Ride" Cross-Sells.
+	 * Tab 3: Delivery Box & "Complete Your Ride" Cross-Sells (Synced with WooCommerce Shipping Zones).
 	 */
 	public static function render_delivery_cross_sell_page(): void {
 		$s = CUX_Inheritance_Engine::get_global_settings();
 		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box & Complete Your Ride', 'commerce-ux-studio' ) );
 		?>
 			<div class="cux-help-banner">
-				<strong><?php esc_html_e( 'Uses Built-In WooCommerce Cross-Sells:', 'commerce-ux-studio' ); ?></strong>
-				<?php esc_html_e( 'To add helmets, shoes, or bottle cages to the "Complete Your Ride" box on any bike, simply select those items inside the standard WooCommerce "Linked Products > Cross-sells" field when editing the product!', 'commerce-ux-studio' ); ?>
+				<strong><?php esc_html_e( 'Synced with WooCommerce Shipping & Checkout:', 'commerce-ux-studio' ); ?></strong>
+				<?php esc_html_e( 'You can automatically pull your exact shipping titles & rates from WooCommerce > Settings > Shipping (such as "Delivery within KSA: 150 ﷼" and "In-store pickup - Riyadh Branch"), or customize the wording below. When a customer selects a card on the product page, it automatically pre-selects that exact shipping method on the Cart & Checkout pages!', 'commerce-ux-studio' ); ?>
 			</div>
 
 			<form method="post" class="cux-card">
 				<?php wp_nonce_field( 'cux_save_settings_action', 'cux_settings_nonce' ); ?>
+				<h3><?php esc_html_e( 'Omnichannel Delivery Method Cards (Product Page -> Cart & Checkout)', 'commerce-ux-studio' ); ?></h3>
 				<table class="form-table">
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Show "Ship to Home vs. In-Store Pickup" Box', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Show Delivery Method Box on Product Pages', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[enable_delivery_block]">
-								<option value="yes" <?php selected( $s['enable_delivery_block'], 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive delivery & showroom pickup cards above Add to Cart)', 'commerce-ux-studio' ); ?></option>
+								<option value="yes" <?php selected( $s['enable_delivery_block'], 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup cards above Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_delivery_block'], 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Default Ship to Home Time & Shipping Cost', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'WooCommerce Shipping Sync Mode', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<input type="text" name="cux_settings[default_home_lead]" value="<?php echo esc_attr( $s['default_home_lead'] ); ?>" placeholder="e.g., 4-7 days" />
-							<input type="text" name="cux_settings[default_home_cost]" value="<?php echo esc_attr( $s['default_home_cost'] ); ?>" placeholder="e.g., $75.00" />
-							<p class="description"><?php esc_html_e( 'Shown inside the Ship to Home card (can be customized per Category under Products > Categories).', 'commerce-ux-studio' ); ?></p>
+							<select name="cux_settings[wc_shipping_sync_mode]">
+								<option value="auto_wc" <?php selected( $s['wc_shipping_sync_mode'] ?? 'auto_wc', 'auto_wc' ); ?>><?php esc_html_e( 'Auto-Sync Titles & Cost from WooCommerce Shipping Settings (Uses custom text below as fallback)', 'commerce-ux-studio' ); ?></option>
+								<option value="custom_text" <?php selected( $s['wc_shipping_sync_mode'] ?? 'auto_wc', 'custom_text' ); ?>><?php esc_html_e( 'Always Use My Custom Wording Below (Still syncs selection to Checkout)', 'commerce-ux-studio' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'In Auto-Sync mode, Card 1 pulls your Flat Rate title & cost (e.g., "Delivery within KSA • 150 ﷼") and Card 2 pulls your Local Pickup title (e.g., "In-store pickup - Riyadh Branch").', 'commerce-ux-studio' ); ?></p>
 						</td>
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Default In-Store Pickup Time', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Section Heading Label', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<input type="text" name="cux_settings[default_pickup_lead]" value="<?php echo esc_attr( $s['default_pickup_lead'] ); ?>" placeholder="e.g., 6-10 days" />
+							<input type="text" name="cux_settings[delivery_heading_label]" value="<?php echo esc_attr( $s['delivery_heading_label'] ?? 'Delivery Method' ); ?>" class="regular-text" placeholder="e.g., Delivery Method" />
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Card 1 (Home Delivery) Wording & Lead Time', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<p style="margin-bottom: 8px;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Card 1 Title:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[home_card_title]" value="<?php echo esc_attr( $s['home_card_title'] ?? 'Delivery within KSA' ); ?>" class="regular-text" placeholder="e.g., Delivery within KSA or Ship to Home" />
+							</p>
+							<p style="margin-bottom: 8px;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Lead Time Badge:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[default_home_lead]" value="<?php echo esc_attr( $s['default_home_lead'] ?? '4-7 days' ); ?>" placeholder="e.g., 4-7 days" />
+							</p>
+							<p style="margin-bottom: 0;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Fallback Shipping Cost:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[default_home_cost]" value="<?php echo esc_attr( $s['default_home_cost'] ?? '150 SAR' ); ?>" placeholder="e.g., 150 SAR" />
+							</p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Card 2 (In-Store Pickup) Wording & Lead Time', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<p style="margin-bottom: 8px;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Card 2 Title:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[pickup_card_title]" value="<?php echo esc_attr( $s['pickup_card_title'] ?? 'In-store pickup - Riyadh Branch' ); ?>" class="regular-text" placeholder="e.g., In-store pickup - Riyadh Branch" />
+							</p>
+							<p style="margin-bottom: 8px;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Lead Time Badge:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[default_pickup_lead]" value="<?php echo esc_attr( $s['default_pickup_lead'] ?? '6-10 days' ); ?>" placeholder="e.g., 6-10 days" />
+							</p>
+							<p style="margin-bottom: 0;">
+								<label style="display:inline-block;width:190px;font-weight:600;"><?php esc_html_e( 'Pickup Subtitle Text:', 'commerce-ux-studio' ); ?></label>
+								<input type="text" name="cux_settings[pickup_card_subtitle]" value="<?php echo esc_attr( $s['pickup_card_subtitle'] ?? 'Free showroom assembly & handover' ); ?>" class="regular-text" placeholder="e.g., Free showroom assembly & handover" />
+							</p>
 						</td>
 					</tr>
 
