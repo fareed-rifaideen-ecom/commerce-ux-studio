@@ -2,6 +2,10 @@
  * Commerce UX Studio - Frontend Interactive Controller (Flatsome & WooCommerce 11.3+)
  *
  * File Path: assets/js/frontend-ux.js
+ * Author:    Fareed M. Rifaideen
+ * Website:   https://fareed-rifaideen.netlify.app/
+ * LinkedIn:  https://www.linkedin.com/in/fareed03/
+ * GitHub:    https://github.com/fareed-rifaideen-ecom
  *
  * Powers:
  * 1. Shop & Category Card Swatch Image Swap + Deep-Link URL Updater
