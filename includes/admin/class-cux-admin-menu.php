@@ -214,14 +214,26 @@ class CUX_Admin_Menu {
 		?>
 		<div class="wrap cux-admin-wrap">
 			<div class="cux-admin-header">
-				<div class="cux-brand">
-					<span class="dashicons dashicons-art"></span>
-					<div>
-						<h1>
-							<?php esc_html_e( 'Commerce UX Studio', 'commerce-ux-studio' ); ?>
-							<span class="cux-version">v<?php echo esc_html( CUX_STUDIO_VERSION ); ?></span>
-						</h1>
-						<p><?php echo esc_html( $page_title ); ?></p>
+				<div class="cux-brand" style="justify-content: space-between; flex-wrap: wrap;">
+					<div style="display: flex; align-items: center; gap: 14px;">
+						<span class="dashicons dashicons-art"></span>
+						<div>
+							<h1>
+								<?php esc_html_e( 'Commerce UX Studio', 'commerce-ux-studio' ); ?>
+								<span class="cux-version">v<?php echo esc_html( CUX_STUDIO_VERSION ); ?></span>
+							</h1>
+							<p><?php echo esc_html( $page_title ); ?></p>
+						</div>
+					</div>
+					<div class="cux-author-credit" style="font-size: 12.5px; color: #50575e; text-align: right;">
+						<strong><?php esc_html_e( 'Author:', 'commerce-ux-studio' ); ?></strong> Fareed M. Rifaideen
+						<div style="margin-top: 4px;">
+							<a href="https://fareed-rifaideen.netlify.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; font-weight: 600;"><?php esc_html_e( 'Website', 'commerce-ux-studio' ); ?></a>
+							&bull;
+							<a href="https://www.linkedin.com/in/fareed03/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; font-weight: 600;"><?php esc_html_e( 'LinkedIn', 'commerce-ux-studio' ); ?></a>
+							&bull;
+							<a href="https://github.com/fareed-rifaideen-ecom" target="_blank" rel="noopener noreferrer" style="text-decoration: none; font-weight: 600;"><?php esc_html_e( 'GitHub', 'commerce-ux-studio' ); ?></a>
+						</div>
 					</div>
 				</div>
 				<nav class="cux-nav-tabs">
