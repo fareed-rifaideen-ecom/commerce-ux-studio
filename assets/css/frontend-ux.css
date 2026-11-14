@@ -1,0 +1,1041 @@
+/
+
+Commerce UX Studio - Frontend Responsive Stylesheet (Flatsome & WooCommerce 11.3+)
+
+File Path: assets/css/frontend-ux.css
+
+Covers:
+
+Shop & Category Cards (Style A: Specialized, Style B: Pinarello, Style C: Zara Quick-Add)
+
+Interactive Color Circles (Solid, 50/50 Horizontal/Vertical/45-deg Split, Metallic Sheen)
+
+Single Product Swatches (Color Circles, Size Boxes, Rich Spec Radio Cards, Inline Size Guide)
+
+Omnichannel Delivery Switcher (Ship to Home vs. In-Store Pickup & Low Stock Alert Banner)
+
+In-Page "Complete Your Ride" Cross-Sell Configurator & Expandable Drawer
+
+Mobile Gallery Thumbnail Overlays (Floating Right Pill, Floating Bottom Strip, Minimal Counter)
+
+Floating Product Comparison Bar & Modal
+*/
+
+:root {
+--cux-primary: #111827;
+--cux-accent: #dc2626;
+--cux-success: #16a34a;
+--cux-warning: #ea580c;
+--cux-muted: #64748b;
+--cux-border: #e2e8f0;
+--cux-surface-soft: #f4f4f5;
+--cux-radius-sm: 6px;
+--cux-radius-md: 10px;
+--cux-radius-pill: 999px;
+}
+
+/* ==========================================================================
+
+SHOP & CATEGORY ARCHIVE CARDS (SPECIALIZED, PINARELLO & ZARA PRESETS)
+========================================================================== */
+
+/* Style A (Specialized): Soft studio grey image box */
+.cux-card-preset-specialized_spec .box-image {
+background-color: var(--cux-surface-soft);
+border-radius: var(--cux-radius-md);
+overflow: hidden;
+position: relative;
+}
+
+/* Style B (Pinarello): Clean light showroom frame */
+.cux-card-preset-pinarello_showroom .box-image {
+background-color: #f8fafc;
+border-radius: var(--cux-radius-sm);
+overflow: hidden;
+position: relative;
+}
+
+.cux-card-overlays {
+position: absolute;
+inset: 0;
+pointer-events: none;
+z-index: 5;
+}
+
+/* Top-Left Card Badge ("Award Winning") */
+.cux-card-badge-tl {
+position: absolute;
+top: 12px;
+left: 12px;
+background: rgba(255, 255, 255, 0.94);
+color: var(--cux-primary);
+font-size: 11px;
+font-weight: 600;
+letter-spacing: 0.02em;
+padding: 4px 10px;
+border-radius: var(--cux-radius-sm);
+box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+pointer-events: auto;
+line-height: 1.3;
+}
+
+/* Top-Right Spec Label ("DISC") */
+.cux-card-badge-tr {
+position: absolute;
+top: 12px;
+right: 12px;
+color: #475569;
+font-size: 11px;
+font-weight: 700;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+background: rgba(255, 255, 255, 0.85);
+padding: 3px 8px;
+border-radius: 4px;
+}
+
+/* Swatch + Compare Row below image (Style A & C) */
+.cux-card-swatch-compare-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 8px;
+margin: 10px 0 8px;
+min-height: 26px;
+}
+
+.cux-card-swatches {
+display: flex;
+align-items: center;
+flex-wrap: wrap;
+gap: 7px;
+pointer-events: auto;
+}
+
+/* Style B (Pinarello): Overlaid Swatches inside bottom-left of image */
+.cux-card-swatches-overlaid {
+position: absolute;
+bottom: 12px;
+left: 12px;
+background: rgba(255, 255, 255, 0.82);
+backdrop-filter: blur(6px);
+padding: 5px 8px;
+border-radius: var(--cux-radius-pill);
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cux-card-swatch-dot {
+width: 22px;
+height: 22px;
+padding: 2px;
+border-radius: 50%;
+border: 1.5px solid transparent;
+background: transparent;
+cursor: pointer;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+transition: transform 0.15s ease, border-color 0.15s ease;
+margin: 0;
+}
+
+.cux-card-swatch-dot:hover {
+transform: scale(1.12);
+}
+
+.cux-card-swatch-dot.is-active {
+border-color: var(--cux-primary);
+}
+
+.cux-card-swatch-inner {
+width: 100%;
+height: 100%;
+border-radius: 50%;
+box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+display: block;
+}
+
+.cux-card-swatch-more {
+font-size: 11px;
+font-weight: 600;
+color: var(--cux-muted);
+margin-left: 2px;
+}
+
+/* Compare Checkbox on Specialized Cards */
+.cux-card-compare-label {
+display: inline-flex;
+align-items: center;
+gap: 5px;
+font-size: 12px;
+color: #475569;
+cursor: pointer;
+margin: 0;
+user-select: none;
+}
+
+.cux-card-compare-label input[type="checkbox"] {
+margin: 0;
+width: 15px;
+height: 15px;
+cursor: pointer;
+}
+
+/* Card Spec Subtitle ("Shimano Dura-Ace Di2") & Pinarello Tagline */
+.cux-card-spec-subtitle {
+font-size: 12.5px;
+color: var(--cux-muted);
+margin: 3px 0 6px;
+line-height: 1.35;
+}
+
+.cux-card-preset-pinarello_showroom .product-title a {
+text-transform: uppercase;
+letter-spacing: 0.03em;
+font-weight: 700;
+}
+
+.cux-card-tagline {
+font-size: 11px;
+font-weight: 600;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--cux-muted);
+margin: 2px 0 6px;
+}
+
+.cux-card-financing-note {
+font-size: 11.5px;
+color: var(--cux-muted);
+margin-top: 3px;
+}
+
+/* Style C (Zara): Hover Quick-Add Size Bar */
+.cux-zara-quick-add-bar {
+position: absolute;
+left: 8px;
+right: 8px;
+bottom: 8px;
+background: rgba(255, 255, 255, 0.95);
+backdrop-filter: blur(6px);
+padding: 8px 10px;
+border-radius: var(--cux-radius-sm);
+box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+pointer-events: auto;
+opacity: 0;
+transform: translateY(6px);
+transition: opacity 0.2s ease, transform 0.2s ease;
+text-align: center;
+}
+
+.box-image:hover .cux-zara-quick-add-bar,
+.cux-zara-quick-add-bar:focus-within {
+opacity: 1;
+transform: translateY(0);
+}
+
+.cux-zara-quick-title {
+display: block;
+font-size: 10px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+color: var(--cux-muted);
+margin-bottom: 5px;
+}
+
+.cux-zara-size-list {
+display: flex;
+flex-wrap: wrap;
+justify-content: center;
+gap: 4px;
+}
+
+.cux-zara-size-pill {
+background: #fff;
+border: 1px solid #cbd5e1;
+border-radius: 4px;
+padding: 3px 7px;
+font-size: 11px;
+font-weight: 600;
+color: var(--cux-primary);
+cursor: pointer;
+margin: 0;
+min-height: 26px;
+transition: all 0.15s ease;
+}
+
+.cux-zara-size-pill:hover {
+background: var(--cux-primary);
+color: #fff;
+border-color: var(--cux-primary);
+}
+
+/* ==========================================================================
+2. SINGLE PRODUCT PAGE (PDP) SWATCHES & HEADER METADATA
+========================================================================== */
+
+.cux-pdp-header-meta {
+margin: 4px 0 12px;
+}
+
+.cux-pdp-badge-pill {
+display: inline-block;
+background: #f1f5f9;
+color: var(--cux-primary);
+font-size: 11.5px;
+font-weight: 600;
+padding: 3px 10px;
+border-radius: var(--cux-radius-pill);
+margin-bottom: 6px;
+}
+
+.cux-pdp-spec-subtitle {
+font-size: 14px;
+color: #475569;
+font-weight: 500;
+}
+
+.cux-pdp-tagline {
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--cux-muted);
+margin-top: 2px;
+}
+
+.cux-swatch-control-wrap {
+margin-bottom: 14px;
+}
+
+.cux-swatch-header-bar {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 8px;
+}
+
+.cux-selected-term-label {
+font-size: 13px;
+font-weight: 600;
+color: var(--cux-primary);
+}
+
+.cux-size-guide-trigger {
+background: none;
+border: none;
+padding: 0;
+margin: 0;
+color: var(--cux-primary);
+font-size: 12.5px;
+font-weight: 600;
+text-decoration: underline;
+cursor: pointer;
+display: inline-flex;
+align-items: center;
+gap: 4px;
+}
+
+.cux-size-guide-trigger .dashicons {
+font-size: 16px;
+width: 16px;
+height: 16px;
+}
+
+.cux-swatch-items {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+}
+
+/* Swatch Type 1: Color Circles */
+.cux-swatch-style-color_circle .cux-swatch-item {
+width: 36px;
+height: 36px;
+padding: 3px;
+border-radius: 50%;
+border: 2px solid transparent;
+background: transparent;
+cursor: pointer;
+position: relative;
+margin: 0;
+transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.cux-swatch-style-color_circle .cux-swatch-item:hover {
+transform: scale(1.08);
+}
+
+.cux-swatch-style-color_circle .cux-swatch-item.is-selected {
+border-color: var(--cux-primary);
+}
+
+.cux-color-circle-inner {
+display: block;
+width: 100%;
+height: 100%;
+border-radius: 50%;
+box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* Swatch Type 2: Square / Pill Size Boxes */
+.cux-swatch-style-size_box .cux-swatch-item {
+min-width: 52px;
+min-height: 42px;
+padding: 6px 14px;
+border-radius: var(--cux-radius-sm);
+border: 1.5px solid #cbd5e1;
+background: #ffffff;
+color: var(--cux-primary);
+font-size: 13px;
+font-weight: 600;
+cursor: pointer;
+display: inline-flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+margin: 0;
+transition: all 0.15s ease;
+position: relative;
+}
+
+.cux-swatch-style-size_box .cux-swatch-item:hover {
+border-color: var(--cux-primary);
+}
+
+.cux-swatch-style-size_box .cux-swatch-item.is-selected {
+background: var(--cux-primary);
+color: #ffffff;
+border-color: var(--cux-primary);
+}
+
+.cux-size-eta {
+font-size: 9.5px;
+font-weight: 500;
+opacity: 0.85;
+line-height: 1.1;
+margin-top: 2px;
+}
+
+/* Swatch Type 3: Rich Spec Radio Cards (Vilgain / Canyon Style) */
+.cux-swatch-style-radio_card {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+gap: 10px;
+width: 100%;
+}
+
+.cux-swatch-style-radio_card .cux-swatch-item {
+width: 100%;
+text-align: left;
+padding: 12px 14px;
+border-radius: var(--cux-radius-md);
+border: 1.5px solid #cbd5e1;
+background: #ffffff;
+cursor: pointer;
+display: flex;
+flex-direction: column;
+gap: 4px;
+margin: 0;
+transition: all 0.15s ease;
+}
+
+.cux-swatch-style-radio_card .cux-swatch-item.is-selected {
+border-color: var(--cux-primary);
+box-shadow: 0 0 0 1px var(--cux-primary);
+background: #f8fafc;
+}
+
+.cux-radio-card-top {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 6px;
+width: 100%;
+}
+
+.cux-radio-card-title {
+font-size: 13.5px;
+color: var(--cux-primary);
+}
+
+.cux-stock-pill,
+.cux-eta-pill,
+.cux-oos-pill {
+font-size: 10.5px;
+font-weight: 600;
+padding: 2px 7px;
+border-radius: var(--cux-radius-pill);
+}
+
+.cux-stock-pill {
+background: #dcfce7;
+color: #15803d;
+}
+
+.cux-eta-pill {
+background: #fef3c7;
+color: #b45309;
+}
+
+.cux-oos-pill {
+background: #f1f5f9;
+color: #64748b;
+}
+
+/* Out-of-Stock Swatch States */
+.cux-swatch-item.is-out-of-stock {
+opacity: 0.55;
+}
+
+.cux-swatch-item.is-out-of-stock::after {
+content: "";
+position: absolute;
+top: 50%;
+left: 10%;
+right: 10%;
+height: 1.5px;
+background: #dc2626;
+transform: rotate(-35deg);
+pointer-events: none;
+}
+
+.cux-swatch-item.is-disabled {
+cursor: not-allowed;
+}
+
+/* ==========================================================================
+3. OMNICHANNEL DELIVERY SWITCHER & LOW STOCK WARNING BANNER
+========================================================================== */
+
+.cux-fulfilment-wrapper {
+margin: 18px 0;
+padding: 14px;
+background: #f8fafc;
+border: 1px solid var(--cux-border);
+border-radius: var(--cux-radius-md);
+}
+
+.cux-fulfilment-header {
+font-size: 13px;
+margin-bottom: 10px;
+color: var(--cux-primary);
+}
+
+.cux-delivery-cards-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 10px;
+}
+
+.cux-delivery-card {
+position: relative;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+padding: 12px;
+background: #ffffff;
+border: 1.5px solid #cbd5e1;
+border-radius: var(--cux-radius-sm);
+cursor: pointer;
+margin: 0;
+transition: all 0.15s ease;
+}
+
+.cux-delivery-card input[type="radio"] {
+position: absolute;
+opacity: 0;
+pointer-events: none;
+}
+
+.cux-delivery-card.is-active {
+border-color: var(--cux-primary);
+box-shadow: 0 0 0 1px var(--cux-primary);
+}
+
+.cux-delivery-card-top {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 6px;
+margin-bottom: 6px;
+}
+
+.cux-delivery-title {
+font-size: 13px;
+font-weight: 700;
+color: var(--cux-primary);
+}
+
+.cux-delivery-lead {
+font-size: 11.5px;
+font-weight: 600;
+color: var(--cux-muted);
+}
+
+.cux-delivery-card-sub {
+display: flex;
+align-items: center;
+gap: 6px;
+font-size: 12px;
+color: #475569;
+line-height: 1.35;
+}
+
+.cux-status-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+background: var(--cux-success);
+}
+
+.cux-status-dot.is-unavailable {
+background: #94a3b8;
+}
+
+/* Low Stock Warning Banner */
+.cux-stock-alert-banner {
+margin-top: 12px;
+padding: 9px 12px;
+background: #fff7ed;
+border: 1px solid #fed7aa;
+border-radius: var(--cux-radius-sm);
+display: flex;
+align-items: center;
+gap: 8px;
+color: #c2410c;
+font-size: 13px;
+}
+
+.cux-stock-alert-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: var(--cux-warning);
+}
+
+/* ==========================================================================
+4. IN-PAGE "COMPLETE YOUR RIDE" CROSS-SELL CONFIGURATOR
+========================================================================== */
+
+.cux-complete-ride-box {
+margin-top: 24px;
+border: 1px solid var(--cux-border);
+border-radius: var(--cux-radius-md);
+background: #ffffff;
+overflow: hidden;
+}
+
+.cux-cr-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 14px 16px;
+background: #f8fafc;
+border-bottom: 1px solid var(--cux-border);
+cursor: pointer;
+}
+
+.cux-cr-header h4 {
+margin: 0;
+font-size: 15px;
+font-weight: 700;
+color: var(--cux-primary);
+}
+
+.cux-cr-item {
+border-bottom: 1px solid #f1f5f9;
+padding: 12px 16px;
+}
+
+.cux-cr-item:last-child {
+border-bottom: none;
+}
+
+.cux-cr-summary-row {
+display: flex;
+align-items: center;
+gap: 14px;
+}
+
+.cux-cr-thumb {
+width: 64px;
+height: 64px;
+flex-shrink: 0;
+background: var(--cux-surface-soft);
+border-radius: var(--cux-radius-sm);
+overflow: hidden;
+}
+
+.cux-cr-thumb img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.cux-cr-info {
+flex: 1;
+min-width: 0;
+}
+
+.cux-cr-mini-swatches {
+display: flex;
+gap: 5px;
+margin-bottom: 4px;
+}
+
+.cux-cr-dot {
+width: 14px;
+height: 14px;
+border-radius: 50%;
+border: 1px solid rgba(0, 0, 0, 0.2);
+cursor: pointer;
+}
+
+.cux-cr-title {
+display: block;
+font-size: 13.5px;
+font-weight: 600;
+color: var(--cux-primary);
+text-decoration: none;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.cux-cr-price {
+font-size: 13px;
+font-weight: 600;
+color: #334155;
+margin-top: 2px;
+}
+
+.cux-cr-choose-btn,
+.cux-cr-direct-add-btn,
+.cux-cr-confirm-add-btn {
+background: var(--cux-primary);
+color: #ffffff;
+border: none;
+border-radius: var(--cux-radius-sm);
+padding: 8px 14px;
+font-size: 12.5px;
+font-weight: 600;
+cursor: pointer;
+margin: 0;
+white-space: nowrap;
+}
+
+.cux-cr-confirm-add-btn:disabled {
+opacity: 0.45;
+cursor: not-allowed;
+}
+
+/* Expanded In-Place Drawer */
+.cux-cr-drawer {
+margin-top: 12px;
+padding-top: 12px;
+border-top: 1px dashed var(--cux-border);
+}
+
+.cux-cr-drawer-main {
+display: flex;
+gap: 16px;
+align-items: flex-start;
+}
+
+.cux-cr-drawer-img {
+width: 96px;
+height: 96px;
+flex-shrink: 0;
+background: var(--cux-surface-soft);
+border-radius: var(--cux-radius-sm);
+overflow: hidden;
+}
+
+.cux-cr-drawer-img img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.cux-cr-drawer-controls {
+flex: 1;
+}
+
+.cux-cr-size-label {
+display: block;
+font-size: 12px;
+font-weight: 600;
+margin: 8px 0 6px;
+}
+
+.cux-cr-size-pills {
+display: flex;
+flex-wrap: wrap;
+gap: 6px;
+margin-bottom: 10px;
+}
+
+.cux-cr-var-pill {
+background: #ffffff;
+border: 1px solid #cbd5e1;
+border-radius: 4px;
+padding: 4px 10px;
+font-size: 12px;
+font-weight: 600;
+cursor: pointer;
+margin: 0;
+}
+
+.cux-cr-var-pill.is-selected {
+background: var(--cux-primary);
+color: #ffffff;
+border-color: var(--cux-primary);
+}
+
+.cux-cr-drawer-footer {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-top: 10px;
+padding-top: 8px;
+border-top: 1px solid #f1f5f9;
+}
+
+.cux-cr-back-btn {
+background: none;
+border: none;
+padding: 0;
+margin: 0;
+font-size: 12px;
+font-weight: 600;
+color: var(--cux-muted);
+cursor: pointer;
+}
+
+.cux-cr-nav-arrows button {
+background: #f1f5f9;
+border: none;
+width: 28px;
+height: 28px;
+border-radius: 50%;
+font-size: 16px;
+line-height: 1;
+cursor: pointer;
+margin: 0 0 0 4px;
+}
+
+/* ==========================================================================
+5. FLOATING PRODUCT COMPARE BAR & MODAL
+========================================================================== */
+
+.cux-compare-bar {
+position: fixed;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+background: var(--cux-primary);
+color: #ffffff;
+padding: 10px 18px;
+border-radius: var(--cux-radius-pill);
+box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+z-index: 9990;
+}
+
+.cux-compare-bar-inner {
+display: flex;
+align-items: center;
+gap: 16px;
+}
+
+.cux-compare-items {
+display: flex;
+gap: 8px;
+}
+
+.cux-compare-thumb-pill {
+width: 34px;
+height: 34px;
+border-radius: 50%;
+background: #fff;
+overflow: hidden;
+border: 2px solid #fff;
+}
+
+.cux-compare-thumb-pill img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.cux-compare-open-modal-btn {
+background: #ffffff;
+color: var(--cux-primary);
+border: none;
+border-radius: var(--cux-radius-pill);
+padding: 6px 14px;
+font-size: 12.5px;
+font-weight: 700;
+cursor: pointer;
+margin: 0;
+}
+
+.cux-compare-clear-btn {
+background: transparent;
+color: #cbd5e1;
+border: none;
+font-size: 12px;
+cursor: pointer;
+margin: 0;
+}
+
+.cux-compare-modal {
+position: fixed;
+inset: 0;
+z-index: 9999;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 20px;
+}
+
+.cux-compare-modal-backdrop {
+position: absolute;
+inset: 0;
+background: rgba(15, 23, 42, 0.65);
+}
+
+.cux-compare-modal-content {
+position: relative;
+background: #ffffff;
+border-radius: var(--cux-radius-md);
+max-width: 960px;
+width: 100%;
+max-height: 85vh;
+overflow-y: auto;
+padding: 24px;
+z-index: 2;
+}
+
+.cux-compare-modal-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+border-bottom: 1px solid var(--cux-border);
+padding-bottom: 12px;
+margin-bottom: 18px;
+}
+
+.cux-compare-modal-header h3 {
+margin: 0;
+}
+
+.cux-compare-modal-close {
+background: none;
+border: none;
+font-size: 26px;
+cursor: pointer;
+line-height: 1;
+}
+
+#cux-compare-modal-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 18px;
+}
+
+/* ==========================================================================
+6. MOBILE GALLERY OVERLAYS & RESPONSIVE TOUCH ADAPTATIONS (< 767px)
+========================================================================== */
+
+.cux-gallery-counter-pill {
+position: absolute;
+bottom: 14px;
+left: 14px;
+background: rgba(255, 255, 255, 0.9);
+color: var(--cux-primary);
+font-size: 12px;
+font-weight: 700;
+padding: 4px 12px;
+border-radius: var(--cux-radius-pill);
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+z-index: 10;
+pointer-events: none;
+}
+
+@media (max-width: 767px) {
+/* Ensure minimum 44x44px touch targets on mobile */
+.cux-swatch-style-color_circle .cux-swatch-item {
+width: 42px;
+height: 42px;
+}
+
+.cux-swatch-style-size_box .cux-swatch-item {
+	min-height: 44px;
+	min-width: 54px;
+}
+
+.cux-delivery-cards-grid {
+	grid-template-columns: 1fr;
+}
+
+/* Mobile Option 1: Floating Vertical Thumbnail Pill on Right Edge of Main Gallery */
+body.cux-mobile-gallery-floating_right .product-gallery {
+	position: relative;
+}
+
+body.cux-mobile-gallery-floating_right .product-thumbnails {
+	position: absolute !important;
+	top: 50%;
+	right: 10px;
+	transform: translateY(-50%);
+	width: 54px !important;
+	max-height: 240px;
+	overflow-y: auto;
+	background: rgba(255, 255, 255, 0.85);
+	backdrop-filter: blur(8px);
+	padding: 6px;
+	border-radius: 12px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	z-index: 15;
+	display: flex !important;
+	flex-direction: column;
+	gap: 6px;
+}
+
+body.cux-mobile-gallery-floating_right .product-thumbnails .col {
+	width: 100% !important;
+	max-width: 100% !important;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+/* Mobile Option 2: Floating Horizontal Strip at Bottom of Main Gallery */
+body.cux-mobile-gallery-floating_bottom .product-gallery {
+	position: relative;
+}
+
+body.cux-mobile-gallery-floating_bottom .product-thumbnails {
+	position: absolute !important;
+	bottom: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: auto !important;
+	max-width: 90%;
+	background: rgba(255, 255, 255, 0.88);
+	backdrop-filter: blur(8px);
+	padding: 6px 10px;
+	border-radius: 12px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	z-index: 15;
+}
+
+/* Mobile Option 3: Minimal Dots + Counter (Hide bulky thumbnail strip) */
+body.cux-mobile-gallery-minimal_dots .product-thumbnails {
+	display: none !important;
+}
+
+
+}
