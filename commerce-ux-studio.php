@@ -3,21 +3,21 @@
  * Plugin Name:       Commerce UX Studio (Flatsome & Odoo Edition)
  * Plugin URI:        https://example.com/commerce-ux-studio
  * Description:       Dynamic Variation Stock-Winner Gallery Sync, Multi-Attribute Swatch Switcher, Omnichannel Fulfilment UI, Complete Your Ride Configurator, and Google ProductGroup Schema tailored for Flatsome & Odoo ERP.
- * Version:           1.0.0
+ * Version:           2.1.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Custom Engineering
  * Text Domain:       commerce-ux-studio
  * WC requires at least: 8.0
- * WC tested up to:   9.4
+ * WC tested up to:   11.3
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Core Plugin Constants.
-define( 'CUX_STUDIO_VERSION', '1.0.0' );
+// Core Plugin Constants (Version 2.1.0 busts old browser cache automatically).
+define( 'CUX_STUDIO_VERSION', '2.1.0' );
 define( 'CUX_STUDIO_DB_VERSION', '1.0.0' );
 define( 'CUX_STUDIO_FILE', __FILE__ );
 define( 'CUX_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
@@ -52,10 +52,7 @@ add_action(
 add_action(
 	'plugins_loaded',
 	function () {
-		// Automatically run DB migrations when deployed via Git Deploy Manager.
 		CUX_Activator::maybe_upgrade_db();
-
-		// Boot the central loader.
 		CUX_Loader::init();
 	},
 	15
