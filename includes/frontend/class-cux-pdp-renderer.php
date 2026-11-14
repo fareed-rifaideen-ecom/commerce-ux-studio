@@ -33,34 +33,42 @@ class CUX_PDP_Renderer {
 		// 4. Render Omnichannel Delivery Switcher (Ship to Home vs In-Store Pickup) & Low Stock Warning above Add to Cart button.
 		add_action( 'woocommerce_before_single_variation', array( __CLASS__, 'render_delivery_and_low_stock_block' ), 25 );
 
-		// 5. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
+		// 5. Sync customer's selected Delivery Method Card directly into WooCommerce Cart & Checkout Shipping Session.
+		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_chosen_delivery_method_to_wc_session' ), 20, 6 );
+		add_action( 'wp_ajax_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
+		add_action( 'wp_ajax_nopriv_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
+
+		// 6. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
 		add_action( 'woocommerce_after_add_to_cart_form', array( __CLASS__, 'render_complete_your_ride_block' ), 15 );
 
-		// 6. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
+		// 7. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
 		add_action( 'wp_ajax_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 		add_action( 'wp_ajax_nopriv_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 	}
 
 	/**
-	 * Enqueue frontend CSS and JS on WooCommerce pages.
+	 * Enqueue frontend CSS and JS on WooCommerce pages (uses filemtime for instant cache busting).
 	 */
 	public static function enqueue_frontend_assets(): void {
 		if ( ! function_exists( 'is_woocommerce' ) || ( ! is_woocommerce() && ! is_cart() && ! is_checkout() && ! is_front_page() ) ) {
 			return;
 		}
 
+		$css_ver = file_exists( CUX_STUDIO_PATH . 'assets/css/frontend-ux.css' ) ? (string) filemtime( CUX_STUDIO_PATH . 'assets/css/frontend-ux.css' ) : CUX_STUDIO_VERSION;
+		$js_ver  = file_exists( CUX_STUDIO_PATH . 'assets/js/frontend-ux.js' ) ? (string) filemtime( CUX_STUDIO_PATH . 'assets/js/frontend-ux.js' ) : CUX_STUDIO_VERSION;
+
 		wp_enqueue_style(
 			'cux-frontend-ux',
 			CUX_STUDIO_URL . 'assets/css/frontend-ux.css',
 			array(),
-			CUX_STUDIO_VERSION
+			$css_ver
 		);
 
 		wp_enqueue_script(
 			'cux-frontend-ux',
 			CUX_STUDIO_URL . 'assets/js/frontend-ux.js',
 			array( 'jquery' ),
-			CUX_STUDIO_VERSION,
+			$js_ver,
 			true
 		);
 
@@ -193,6 +201,7 @@ class CUX_PDP_Renderer {
 		$option_meta = self::build_attribute_option_meta( $product, $attribute, $options, $cache );
 		$selected    = isset( $args['selected'] ) ? (string) $args['selected'] : '';
 		$oos_mode    = $config['oos_swatch_behavior'] ?? 'clickable_preview';
+		$attr_label  = wc_attribute_label( $attribute, $product );
 
 		ob_start();
 		?>
@@ -204,13 +213,18 @@ class CUX_PDP_Renderer {
 			data-oos-mode="<?php echo esc_attr( $oos_mode ); ?>">
 
 			<div class="cux-swatch-header-bar">
-				<span class="cux-selected-term-label">
-					<?php
-					if ( ! empty( $selected ) && isset( $option_meta[ $selected ]['name'] ) ) {
-						echo esc_html( $option_meta[ $selected ]['name'] );
-					}
-					?>
-				</span>
+				<div class="cux-swatch-title-group">
+					<span class="cux-attr-name-label"><?php echo esc_html( $attr_label ); ?>:</span>
+					<span class="cux-selected-term-label">
+						<?php
+						if ( ! empty( $selected ) && isset( $option_meta[ $selected ]['name'] ) ) {
+							echo esc_html( $option_meta[ $selected ]['name'] );
+						} else {
+							esc_html_e( 'Select', 'commerce-ux-studio' );
+						}
+						?>
+					</span>
+				</div>
 				<?php if ( $show_size_guide ) : ?>
 					<button type="button" class="cux-size-guide-trigger" data-size-guide="<?php echo esc_attr( $size_guide_block ); ?>">
 						<span class="dashicons dashicons-editor-help"></span>
@@ -219,7 +233,7 @@ class CUX_PDP_Renderer {
 				<?php endif; ?>
 			</div>
 
-			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( wc_attribute_label( $attribute, $product ) ); ?>">
+			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( $attr_label ); ?>">
 				<?php
 				foreach ( $options as $option_val ) :
 					$meta = $option_meta[ $option_val ] ?? null;
@@ -227,12 +241,11 @@ class CUX_PDP_Renderer {
 						continue;
 					}
 
-					// Hide completely if global setting is 'hide_completely' and option is out of stock across all combinations.
 					if ( 'hide_completely' === $oos_mode && ! $meta['has_stock'] ) {
 						continue;
 					}
 
-					$is_selected = ( sanitize_title( $selected ) === sanitize_title( $option_val ) );
+					$is_selected  = ( sanitize_title( $selected ) === sanitize_title( $option_val ) );
 					$item_classes = array( 'cux-swatch-item' );
 					if ( $is_selected ) {
 						$item_classes[] = 'is-selected';
@@ -254,7 +267,7 @@ class CUX_PDP_Renderer {
 						<?php echo ( ! $meta['has_stock'] && 'crossed_disabled' === $oos_mode ) ? 'disabled="disabled"' : ''; ?>
 						title="<?php echo esc_attr( ! empty( $meta['tooltip'] ) ? $meta['name'] . ' — ' . $meta['tooltip'] : $meta['name'] ); ?>">
 
-						<?php if ( 'color_circle' === $style ) : ?>
+						<?php if ( 'color_circle' === $style || 'variation_image' === $style ) : ?>
 							<span class="cux-color-circle-inner" style="background: <?php echo esc_attr( $meta['bg_css'] ); ?>;"></span>
 						<?php elseif ( 'radio_card' === $style ) : ?>
 							<span class="cux-radio-card-top">
@@ -289,7 +302,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Build metadata (label, swatch CSS gradient, stock status, restock ETA) for each option of an attribute.
+	 * Build metadata (label, swatch CSS gradient/image, stock status, restock ETA) for each option of an attribute.
 	 *
 	 * @param WC_Product $product   Variable product.
 	 * @param string     $attribute Attribute name.
@@ -303,12 +316,19 @@ class CUX_PDP_Renderer {
 		$attr_lookup = strtolower( (string) $attribute );
 		$no_pa       = 0 === strpos( $attr_lookup, 'pa_' ) ? substr( $attr_lookup, 3 ) : $attr_lookup;
 
+		$attr_style = '';
+		if ( taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
+			$attr_style = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
+		}
+
 		foreach ( $options as $opt_val ) {
 			$slug    = sanitize_title( (string) $opt_val );
 			$name    = (string) $opt_val;
-			$hex_1   = '#334155';
+			$hex_1   = '';
 			$hex_2   = '';
 			$split   = 'horizontal';
+			$img_url = '';
 			$tooltip = '';
 
 			if ( taxonomy_exists( $attribute ) ) {
@@ -321,42 +341,17 @@ class CUX_PDP_Renderer {
 					$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
 					$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
 					$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
+					$img_id  = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
+					$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
 					$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
 				}
 			}
 
-			// Fallback color lookup from precomputed in_stock_colors or intelligent slug guesser.
-			if ( empty( $hex_1 ) && ! empty( $cache['in_stock_colors'] ) ) {
-				foreach ( $cache['in_stock_colors'] as $c_row ) {
-					if ( isset( $c_row['slug'] ) && $c_row['slug'] === $slug ) {
-						$hex_1 = $c_row['hex_1'] ?? '';
-						$hex_2 = $c_row['hex_2'] ?? '';
-						$split = $c_row['split'] ?? 'horizontal';
-						break;
-					}
-				}
-			}
-			if ( empty( $hex_1 ) ) {
-				$hex_1 = self::fallback_hex_from_slug( $slug );
-			}
-
-			$bg_css = $hex_1;
-			if ( ! empty( $hex_2 ) ) {
-				if ( 'angled' === $split ) {
-					$bg_css = "linear-gradient(135deg, {$hex_1} 50%, {$hex_2} 50%)";
-				} elseif ( 'vertical' === $split ) {
-					$bg_css = "linear-gradient(90deg, {$hex_1} 50%, {$hex_2} 50%)";
-				} else {
-					$bg_css = "linear-gradient(180deg, {$hex_1} 50%, {$hex_2} 50%)";
-				}
-			} elseif ( 'metallic' === $split ) {
-				$bg_css = "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5), {$hex_1} 70%)";
-			}
-
-			// Check stock & ETA across availability matrix.
-			$has_stock   = false;
-			$restock_eta = '';
-			$price_html  = '';
+			// Check stock, ETA, and variation thumbnail across availability matrix.
+			$has_stock     = false;
+			$restock_eta   = '';
+			$price_html    = '';
+			$var_thumb_url = '';
 
 			if ( ! empty( $avail_map ) ) {
 				foreach ( $avail_map as $var_data ) {
@@ -373,12 +368,46 @@ class CUX_PDP_Renderer {
 							if ( empty( $price_html ) && ! empty( $var_data['price_html'] ) ) {
 								$price_html = (string) $var_data['price_html'];
 							}
+							if ( empty( $var_thumb_url ) && ! empty( $var_data['main_img_id'] ) ) {
+								$var_thumb_url = (string) wp_get_attachment_image_url( (int) $var_data['main_img_id'], 'woocommerce_gallery_thumbnail' );
+							}
 						}
 					}
 				}
 			} else {
 				$has_stock = true;
 			}
+
+			// If attribute is set to "Auto Variation Thumbnail Swatch", use the variation's own photo.
+			if ( 'variation_image' === $attr_style && empty( $img_url ) && ! empty( $var_thumb_url ) ) {
+				$img_url = $var_thumb_url;
+			}
+
+			// Fallback color lookup from precomputed in_stock_colors or intelligent multi-color slug guesser.
+			if ( empty( $hex_1 ) && ! empty( $cache['in_stock_colors'] ) ) {
+				foreach ( $cache['in_stock_colors'] as $c_row ) {
+					if ( isset( $c_row['slug'] ) && $c_row['slug'] === $slug ) {
+						$hex_1 = $c_row['hex_1'] ?? '';
+						$hex_2 = $c_row['hex_2'] ?? '';
+						$split = $c_row['split'] ?? 'horizontal';
+						break;
+					}
+				}
+			}
+			if ( empty( $hex_1 ) ) {
+				$guessed = self::fallback_colors_from_slug( $slug );
+				$hex_1   = $guessed['hex_1'];
+				if ( empty( $hex_2 ) && ! empty( $guessed['hex_2'] ) ) {
+					$hex_2 = $guessed['hex_2'];
+				}
+				if ( ! empty( $guessed['split'] ) ) {
+					$split = $guessed['split'];
+				}
+			}
+
+			$bg_css = class_exists( 'CUX_Attribute_Fields' )
+				? CUX_Attribute_Fields::compile_swatch_background_css( $hex_1, $hex_2, $split, $img_url )
+				: $hex_1;
 
 			$result[ $opt_val ] = array(
 				'name'        => $name,
@@ -395,13 +424,187 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 3. Inject deduplicated Visual Gallery slide markup & Availability JSON before the variations form.
+	 * 4. Render the Omnichannel Delivery Method Switcher (Synced with WooCommerce Shipping Zones & Settings).
 	 */
-	public static function render_pdp_json_payload(): void {
+	public static function render_delivery_and_low_stock_block(): void {
 		global $product;
-		if ( ! is_object( $product ) || ! $product->is_type( 'variable' ) ) {
+		if ( ! is_object( $product ) ) {
 			return;
 		}
+
+		$product_id = $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+
+		if ( ( $config['enable_delivery_block'] ?? 'yes' ) !== 'yes' ) {
+			return;
+		}
+
+		// Discover active WooCommerce Shipping Methods (e.g., "Delivery within KSA: 150 ﷼" & "In-store pickup - Riyadh Branch").
+		$wc_methods   = self::discover_woocommerce_shipping_methods( $config );
+		$heading      = $config['delivery_heading_label'] ?? __( 'Delivery Method', 'commerce-ux-studio' );
+		$home_lead    = $config['default_home_lead'] ?? '4-7 days';
+		$pickup_lead  = $config['default_pickup_lead'] ?? '6-10 days';
+		$chosen_group = $wc_methods['active_group'];
+		?>
+		<div class="cux-fulfilment-wrapper" id="cux-fulfilment-block">
+			<div class="cux-fulfilment-header">
+				<strong><?php echo esc_html( $heading ); ?></strong>
+			</div>
+
+			<div class="cux-delivery-cards-grid">
+				<!-- Card 1: Home / Regional Delivery -->
+				<label class="cux-delivery-card <?php echo 'home' === $chosen_group ? 'is-active' : ''; ?>" data-method="ship_to_home" data-rate-id="<?php echo esc_attr( $wc_methods['home_rate_id'] ); ?>">
+					<input type="radio" name="cux_delivery_method" value="ship_to_home" data-rate-id="<?php echo esc_attr( $wc_methods['home_rate_id'] ); ?>" <?php checked( $chosen_group, 'home' ); ?> />
+					<input type="hidden" name="cux_chosen_rate_id" id="cux-chosen-rate-id" value="<?php echo esc_attr( 'pickup' === $chosen_group ? $wc_methods['pickup_rate_id'] : $wc_methods['home_rate_id'] ); ?>" />
+					<div class="cux-delivery-card-top">
+						<span class="cux-delivery-title"><?php echo esc_html( $wc_methods['home_title'] ); ?></span>
+						<?php if ( ! empty( $home_lead ) ) : ?>
+							<span class="cux-delivery-lead" id="cux-home-lead-text"><?php echo esc_html( $home_lead ); ?></span>
+						<?php endif; ?>
+					</div>
+					<div class="cux-delivery-card-sub">
+						<span class="cux-status-dot is-available"></span>
+						<span>
+							<?php
+							printf(
+								/* translators: %s: Formatted shipping cost */
+								esc_html__( 'Available • Shipping: %s', 'commerce-ux-studio' ),
+								'<strong id="cux-home-cost-text">' . wp_kses_post( $wc_methods['home_cost_html'] ) . '</strong>'
+							);
+							?>
+						</span>
+					</div>
+				</label>
+
+				<!-- Card 2: Showroom / In-Store Pickup -->
+				<label class="cux-delivery-card <?php echo 'pickup' === $chosen_group ? 'is-active' : ''; ?>" data-method="in_store_pickup" data-rate-id="<?php echo esc_attr( $wc_methods['pickup_rate_id'] ); ?>">
+					<input type="radio" name="cux_delivery_method" value="in_store_pickup" data-rate-id="<?php echo esc_attr( $wc_methods['pickup_rate_id'] ); ?>" <?php checked( $chosen_group, 'pickup' ); ?> />
+					<div class="cux-delivery-card-top">
+						<span class="cux-delivery-title"><?php echo esc_html( $wc_methods['pickup_title'] ); ?></span>
+						<?php if ( ! empty( $pickup_lead ) ) : ?>
+							<span class="cux-delivery-lead" id="cux-pickup-lead-text"><?php echo esc_html( $pickup_lead ); ?></span>
+						<?php endif; ?>
+					</div>
+					<div class="cux-delivery-card-sub" id="cux-pickup-status-line" data-default-subtitle="<?php echo esc_attr( $wc_methods['pickup_subtitle'] ); ?>">
+						<span class="cux-status-dot is-available"></span>
+						<span class="cux-pickup-mode-text"><?php echo esc_html( $wc_methods['pickup_subtitle'] ); ?></span>
+					</div>
+				</label>
+			</div>
+
+			<!-- Dynamic Low Stock / Out of Stock Status Banner -->
+			<div class="cux-stock-alert-banner" id="cux-stock-alert-banner" style="display:none;">
+				<span class="cux-stock-alert-dot"></span>
+				<strong class="cux-stock-alert-text"><?php esc_html_e( 'Low Stock', 'commerce-ux-studio' ); ?></strong>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Inspect WooCommerce Shipping Zones & Session to pull real shipping method titles, rate IDs, and costs.
+	 *
+	 * @param array $config Resolved Studio configuration.
+	 * @return array{home_title: string, home_cost_html: string, home_rate_id: string, pickup_title: string, pickup_subtitle: string, pickup_rate_id: string, active_group: string}
+	 */
+	private static function discover_woocommerce_shipping_methods( array $config ): array {
+		$sync_mode       = $config['wc_shipping_sync_mode'] ?? 'auto_wc';
+		$home_title      = ! empty( $config['home_card_title'] ) ? $config['home_card_title'] : __( 'Delivery within KSA', 'commerce-ux-studio' );
+		$home_cost_html  = ! empty( $config['default_home_cost'] ) ? esc_html( $config['default_home_cost'] ) : wc_price( 150 );
+		$home_rate_id    = '';
+		$pickup_title    = ! empty( $config['pickup_card_title'] ) ? $config['pickup_card_title'] : __( 'In-store pickup - Riyadh Branch', 'commerce-ux-studio' );
+		$pickup_subtitle = ! empty( $config['pickup_card_subtitle'] ) ? $config['pickup_card_subtitle'] : __( 'Free showroom assembly & handover', 'commerce-ux-studio' );
+		$pickup_rate_id  = '';
+
+		// Scan WooCommerce Shipping Zones for active Flat Rate / Free Shipping and Local Pickup methods.
+		if ( class_exists( 'WC_Shipping_Zones' ) ) {
+			$zones    = WC_Shipping_Zones::get_zones();
+			$zone_ids = array_keys( $zones );
+			$zone_ids[] = 0; // Rest of the World fallback zone.
+
+			foreach ( $zone_ids as $z_id ) {
+				$zone    = new WC_Shipping_Zone( $z_id );
+				$methods = $zone->get_shipping_methods( true );
+
+				foreach ( $methods as $instance_id => $method ) {
+					if ( ! is_object( $method ) ) {
+						continue;
+					}
+					$rate_id = $method->id . ':' . $instance_id;
+					$title   = method_exists( $method, 'get_title' ) ? $method->get_title() : '';
+
+					if ( in_array( $method->id, array( 'flat_rate', 'free_shipping' ), true ) && empty( $home_rate_id ) ) {
+						$home_rate_id = $rate_id;
+						if ( 'auto_wc' === $sync_mode && ! empty( $title ) ) {
+							$home_title = $title;
+						}
+						if ( 'auto_wc' === $sync_mode ) {
+							$raw_cost = method_exists( $method, 'get_option' ) ? $method->get_option( 'cost' ) : '';
+							if ( is_numeric( $raw_cost ) && (float) $raw_cost > 0 ) {
+								$home_cost_html = wc_price( (float) $raw_cost );
+							} elseif ( 'free_shipping' === $method->id || '0' === (string) $raw_cost ) {
+								$home_cost_html = __( 'Free', 'commerce-ux-studio' );
+							}
+						}
+					} elseif ( 'local_pickup' === $method->id && empty( $pickup_rate_id ) ) {
+						$pickup_rate_id = $rate_id;
+						if ( 'auto_wc' === $sync_mode && ! empty( $title ) ) {
+							$pickup_title = $title;
+						}
+					}
+				}
+			}
+		}
+
+		// Check if customer already has a chosen shipping method in their WooCommerce session.
+		$active_group = 'home';
+		if ( function_exists( 'WC' ) && WC()->session ) {
+			$chosen = WC()->session->get( 'chosen_shipping_methods' );
+			if ( is_array( $chosen ) && ! empty( $chosen[0] ) ) {
+				if ( false !== strpos( (string) $chosen[0], 'local_pickup' ) || ( ! empty( $pickup_rate_id ) && $chosen[0] === $pickup_rate_id ) ) {
+					$active_group = 'pickup';
+				}
+			}
+		}
+
+		return array(
+			'home_title'      => $home_title,
+			'home_cost_html'  => $home_cost_html,
+			'home_rate_id'    => $home_rate_id,
+			'pickup_title'    => $pickup_title,
+			'pickup_subtitle' => $pickup_subtitle,
+			'pickup_rate_id'  => $pickup_rate_id,
+			'active_group'    => $active_group,
+		);
+	}
+
+	/**
+	 * 5A. When a customer adds a product to the cart, save their selected Delivery Method card into the WooCommerce Shipping Session.
+	 */
+	public static function sync_chosen_delivery_method_to_wc_session(): void {
+		if ( ! function_exists( 'WC' ) || ! WC()->session ) {
+			return;
+		}
+
+		$rate_id = isset( $_REQUEST['cux_chosen_rate_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['cux_chosen_rate_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! empty( $rate_id ) ) {
+			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
+		}
+	}
+
+	/**
+	 * 5B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Card is clicked.
+	 */
+	public static function ajax_set_shipping_method(): void {
+		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
+
+		$rate_id = isset( $_POST['rate_id'] ) ? sanitize_text_field( wp_unslash( $_POST['rate_id'] ) ) : '';
+		if ( ! empty( $rate_id ) && function_exists( 'WC' ) && WC()->session ) {
+			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
+			wp_send_json_success( array( 'rate_id' => $rate_id ) );
+		}
+		wp_send_json_error();
+	}
 
 		$product_id = $product->get_id();
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
@@ -756,37 +959,53 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Fallback hex color resolver for common color names.
+	 * Intelligent multi-color & metallic finish fallback resolver for complex bike color names
+	 * (e.g. "Black liquid metal / Satin black chrome foil").
 	 *
 	 * @param string $slug Color slug.
-	 * @return string
+	 * @return array{hex_1: string, hex_2: string, split: string}
 	 */
-	private static function fallback_hex_from_slug( string $slug ): string {
+	private static function fallback_colors_from_slug( string $slug ): array {
 		$map = array(
 			'black'    => '#18181b',
+			'charcoal' => '#27272a',
+			'chrome'   => '#71717a',
+			'silver'   => '#cbd5e1',
+			'metal'    => '#3f3f46',
 			'white'    => '#f8fafc',
 			'red'      => '#dc2626',
+			'crimson'  => '#991b1b',
 			'blue'     => '#2563eb',
 			'navy'     => '#1e3a8a',
+			'teal'     => '#0d9488',
 			'green'    => '#16a34a',
+			'olive'    => '#4d7c0f',
 			'yellow'   => '#eab308',
+			'gold'     => '#ca8a04',
 			'orange'   => '#ea580c',
 			'grey'     => '#64748b',
 			'gray'     => '#64748b',
-			'silver'   => '#cbd5e1',
-			'gold'     => '#ca8a04',
 			'pink'     => '#db2777',
 			'purple'   => '#7c3aed',
 			'beige'    => '#d6d3d1',
+			'sand'     => '#d6d3d1',
 			'brown'    => '#78350f',
+			'bronze'   => '#92400e',
 		);
 
+		$found = array();
 		foreach ( $map as $word => $hex ) {
-			if ( false !== strpos( $slug, $word ) ) {
-				return $hex;
+			if ( false !== strpos( $slug, $word ) && ! in_array( $hex, $found, true ) ) {
+				$found[] = $hex;
 			}
 		}
 
-		return '#475569';
+		$is_metallic = ( false !== strpos( $slug, 'metal' ) || false !== strpos( $slug, 'chrome' ) || false !== strpos( $slug, 'foil' ) || false !== strpos( $slug, 'pearl' ) );
+
+		return array(
+			'hex_1' => $found[0] ?? '#334155',
+			'hex_2' => $found[1] ?? '',
+			'split' => $is_metallic ? 'metallic' : 'horizontal',
+		);
 	}
 }
