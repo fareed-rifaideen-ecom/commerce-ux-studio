@@ -43,7 +43,6 @@
 			$dot.siblings('.cux-card-swatch-dot').removeClass('is-active');
 			$dot.addClass('is-active');
 
-			// Swap main product card image in-place
 			if (imgSrc) {
 				const $mainImg = $card.find('.box-image img').first();
 				if ($mainImg.length) {
@@ -51,7 +50,6 @@
 				}
 			}
 
-			// Swap Flatsome back/hover image if present
 			if (hoverSrc) {
 				const $hoverImg = $card.find('.box-image .show-on-hover img, .box-image img.back-image').first();
 				if ($hoverImg.length) {
@@ -59,7 +57,6 @@
 				}
 			}
 
-			// Append ?attribute_pa_colour=... to card links so clicking opens that exact color
 			const baseUrl = $card.find('[data-base-url]').first().data('base-url');
 			if (baseUrl && deepLink) {
 				const cleanBase = String(baseUrl).split('?')[0];
@@ -126,7 +123,6 @@
 			}
 		}
 
-		// Initialize slide counter badge (1/N) on the Flatsome gallery
 		function updateGalleryCounter(currentIndex, totalSlides) {
 			const $gallery = $('.product-gallery-slider').first();
 			if (!$gallery.length || totalSlides <= 1) {
@@ -141,7 +137,6 @@
 			$counter.text((currentIndex + 1) + ' / ' + totalSlides);
 		}
 
-		// Attach counter listener to native Flatsome Flickity slider on load
 		const $mainSlider = $('.product-gallery-slider').first();
 		if ($mainSlider.length) {
 			const totalInitial = $mainSlider.find('.woocommerce-product-gallery__image, .slide').length;
@@ -152,7 +147,6 @@
 			});
 		}
 
-		// Compute current Visual Hash from selected visual swatches
 		function computeSelectedVisualHash() {
 			if (!pdpData) {
 				return '';
@@ -170,7 +164,6 @@
 			return parts.join('__');
 		}
 
-		// Swap Flatsome Flickity Gallery Slides when a Primary/Secondary Visual Swatch is clicked
 		function swapFlatsomeGalleryByHash(visualHash, fallbackColorSlug) {
 			if (!pdpData || !pdpData.slides_by_hash) {
 				return;
@@ -182,7 +175,7 @@
 			}
 
 			if (visualHash === activeVisualHash) {
-				return; // Already displaying this exact visual gallery!
+				return;
 			}
 			activeVisualHash = visualHash;
 
@@ -195,7 +188,6 @@
 			const flktyMain = $slider.data('flickity');
 			const flktyThumbs = $thumbs.length ? $thumbs.data('flickity') : null;
 
-			// Build new main slides HTML
 			const newMainEls = [];
 			const newThumbEls = [];
 
@@ -244,7 +236,6 @@
 			updateGalleryCounter(0, slides.length);
 		}
 
-		// Handle Swatch Button Clicks on the Single Product Page
 		$(document).on('click', '.cux-swatch-item', function (e) {
 			e.preventDefault();
 			const $btn = $(this);
@@ -258,18 +249,15 @@
 			const name = $btn.data('name');
 			const slug = $btn.data('slug');
 
-			// Update selected visual state & header label
 			$wrap.find('.cux-swatch-item').removeClass('is-selected').attr('aria-checked', 'false');
 			$btn.addClass('is-selected').attr('aria-checked', 'true');
 			$wrap.find('.cux-selected-term-label').text(name);
 
-			// Sync with hidden native WooCommerce <select>
 			const $select = $wrap.find('select').first();
 			if ($select.length) {
 				$select.val(val).trigger('change');
 			}
 
-			// Dimensional Bypass: If the user clicked a Size box ("dimensional"), skip Flickity gallery reload!
 			if (role === 'visual_primary' || role === 'visual_secondary') {
 				const newHash = computeSelectedVisualHash();
 				swapFlatsomeGalleryByHash(newHash, slug);
@@ -287,10 +275,8 @@
 			$card.addClass('is-active');
 			$card.find('input[type="radio"]').prop('checked', true);
 
-			// Update hidden input inside form so Add to Cart POST carries the rate ID
 			$('#cux-chosen-rate-id').val(rateId);
 
-			// Immediately sync selected shipping method to WooCommerce session for Cart & Checkout
 			if (rateId && i18n.ajaxUrl) {
 				$.post(i18n.ajaxUrl, {
 					action: 'cux_set_shipping_method',
@@ -300,7 +286,6 @@
 			}
 		});
 
-		// Listen to WooCommerce's native found_variation & reset_data events
 		$('form.variations_form')
 			.on('found_variation', function (event, variation) {
 				if (!pdpData || !pdpData.availability_matrix || !variation || !variation.variation_id) {
@@ -316,15 +301,14 @@
 					return;
 				}
 
-				// 1. Update Showroom In-Store Pickup Status
 				if ($pickupLine.length) {
 					const $dot = $pickupLine.find('.cux-status-dot');
 					const $txt = $pickupLine.find('.cux-pickup-mode-text');
-					const defaultSub = $pickupLine.data('default-subtitle') || 'Ship to store • Free showroom assembly';
+					const defaultSub = $pickupLine.data('default-subtitle') || 'Available for store pickup';
 
 					if (meta.pickup_status === 'ready_today') {
 						$dot.removeClass('is-unavailable').addClass('is-available');
-						$txt.html('<strong>Get it today</strong> • In Stock at Showroom');
+						$txt.html('<strong>Get it today</strong> &bull; In Stock at Showroom');
 					} else if (meta.pickup_status === 'unavailable') {
 						$dot.removeClass('is-available').addClass('is-unavailable');
 						$txt.text('Currently unavailable for In-Store Pickup');
@@ -334,7 +318,6 @@
 					}
 				}
 
-				// 2. Update Low Stock / Out of Stock Banner & CTA Button State
 				if (!meta.is_in_stock) {
 					const etaMsg = meta.restock_eta
 						? i18n.i18nOutOfStock + ' • Restock expected: ' + meta.restock_eta
@@ -356,7 +339,6 @@
 				$(this).find('.single_add_to_cart_button').text(i18n.i18nChooseOpts);
 			});
 
-		// Smart "Choose Options" Smooth Scroll if user clicks disabled Add to Cart before picking a size
 		$(document).on('click', '.single_add_to_cart_button.disabled', function (e) {
 			const $unselected = $('.cux-swatch-control-wrap').filter(function () {
 				return $(this).find('.cux-swatch-item.is-selected').length === 0;
@@ -370,7 +352,6 @@
 			}
 		});
 
-		// Size Guide Trigger Button
 		$(document).on('click', '.cux-size-guide-trigger', function (e) {
 			e.preventDefault();
 			const target = $(this).data('size-guide');
@@ -390,7 +371,6 @@
 			$box.find('.cux-cr-body').slideToggle(200);
 		});
 
-		// Mini color dots on Cross-Sell items swap thumbnail
 		$(document).on('click', '.cux-cr-dot', function (e) {
 			e.preventDefault();
 			const imgUrl = $(this).data('img');
@@ -399,7 +379,6 @@
 			}
 		});
 
-		// Open In-Place Option Drawer
 		$(document).on('click', '.cux-cr-choose-btn', function (e) {
 			e.preventDefault();
 			const $item = $(this).closest('.cux-cr-item');
@@ -407,7 +386,6 @@
 			$item.find('.cux-cr-drawer').fadeIn(180);
 		});
 
-		// Back to Compact List
 		$(document).on('click', '.cux-cr-back-btn', function (e) {
 			e.preventDefault();
 			const $item = $(this).closest('.cux-cr-item');
@@ -415,7 +393,6 @@
 			$item.find('.cux-cr-summary-row').fadeIn(150);
 		});
 
-		// Prev / Next Item Navigation inside Expanded Drawer
 		$(document).on('click', '.cux-cr-prev-btn, .cux-cr-next-btn', function (e) {
 			e.preventDefault();
 			const isNext = $(this).hasClass('cux-cr-next-btn');
@@ -432,7 +409,6 @@
 			}
 		});
 
-		// Select Variation Pill inside Complete Your Ride Drawer
 		$(document).on('click', '.cux-cr-var-pill', function (e) {
 			e.preventDefault();
 			const $pill = $(this);
@@ -452,7 +428,6 @@
 				.attr('data-variation-id', varId);
 		});
 
-		// AJAX Add to Cart from Complete Your Ride (Simple or Variable)
 		$(document).on('click', '.cux-cr-direct-add-btn, .cux-cr-confirm-add-btn', function (e) {
 			e.preventDefault();
 			const $btn = $(this);
