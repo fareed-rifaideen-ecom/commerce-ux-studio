@@ -280,9 +280,24 @@
 		   4. OMNICHANNEL DELIVERY SWITCHER & LIVE VARIATION STATUS UPDATES
 		   ====================================================================== */
 		$(document).on('click', '.cux-delivery-card', function () {
+			const $card = $(this);
+			const rateId = $card.data('rate-id') || '';
+
 			$('.cux-delivery-card').removeClass('is-active');
-			$(this).addClass('is-active');
-			$(this).find('input[type="radio"]').prop('checked', true);
+			$card.addClass('is-active');
+			$card.find('input[type="radio"]').prop('checked', true);
+
+			// Update hidden input inside form so Add to Cart POST carries the rate ID
+			$('#cux-chosen-rate-id').val(rateId);
+
+			// Immediately sync selected shipping method to WooCommerce session for Cart & Checkout
+			if (rateId && i18n.ajaxUrl) {
+				$.post(i18n.ajaxUrl, {
+					action: 'cux_set_shipping_method',
+					nonce: i18n.nonce,
+					rate_id: rateId
+				});
+			}
 		});
 
 		// Listen to WooCommerce's native found_variation & reset_data events
@@ -305,6 +320,7 @@
 				if ($pickupLine.length) {
 					const $dot = $pickupLine.find('.cux-status-dot');
 					const $txt = $pickupLine.find('.cux-pickup-mode-text');
+					const defaultSub = $pickupLine.data('default-subtitle') || 'Ship to store • Free showroom assembly';
 
 					if (meta.pickup_status === 'ready_today') {
 						$dot.removeClass('is-unavailable').addClass('is-available');
@@ -314,7 +330,7 @@
 						$txt.text('Currently unavailable for In-Store Pickup');
 					} else {
 						$dot.removeClass('is-unavailable').addClass('is-available');
-						$txt.text('Ship to store • Free showroom assembly');
+						$txt.text(defaultSub);
 					}
 				}
 
