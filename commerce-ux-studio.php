@@ -1,28 +1,40 @@
 <?php
 /**
  * Plugin Name:       Commerce UX Studio (Flatsome & Odoo Edition)
- * Plugin URI:        https://example.com/commerce-ux-studio
+ * Plugin URI:        https://github.com/fareed-rifaideen-ecom
  * Description:       Dynamic Variation Stock-Winner Gallery Sync, Multi-Attribute Swatch Switcher, Universal WooCommerce Shipping UI, Complete Your Ride Configurator, and Google ProductGroup Schema.
- * Version:           2.2.0
+ * Version:           2.2.1
  * Requires at least: 6.2
  * Requires PHP:      7.4
- * Author:            Custom Engineering
+ * Author:            Fareed M. Rifaideen
+ * Author URI:        https://fareed-rifaideen.netlify.app/
  * Text Domain:       commerce-ux-studio
  * WC requires at least: 8.0
  * WC tested up to:   11.3
+ *
+ * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
+ * @link    https://www.linkedin.com/in/fareed03/
+ * @link    https://github.com/fareed-rifaideen-ecom
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Core Plugin Constants (Version 2.2.0 busts browser cache automatically).
-define( 'CUX_STUDIO_VERSION', '2.2.0' );
+// Core Plugin Constants.
+define( 'CUX_STUDIO_VERSION', '2.2.1' );
 define( 'CUX_STUDIO_DB_VERSION', '1.0.0' );
 define( 'CUX_STUDIO_FILE', __FILE__ );
 define( 'CUX_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CUX_STUDIO_URL', plugin_dir_url( __FILE__ ) );
 define( 'CUX_STUDIO_BASENAME', plugin_basename( __FILE__ ) );
+
+// Author Metadata Constants.
+define( 'CUX_AUTHOR_NAME', 'Fareed M. Rifaideen' );
+define( 'CUX_AUTHOR_WEBSITE', 'https://fareed-rifaideen.netlify.app/' );
+define( 'CUX_AUTHOR_LINKEDIN', 'https://www.linkedin.com/in/fareed03/' );
+define( 'CUX_AUTHOR_GITHUB', 'https://github.com/fareed-rifaideen-ecom' );
 
 // Load Core Activator & Loader.
 require_once CUX_STUDIO_PATH . 'includes/core/class-cux-activator.php';
@@ -33,6 +45,23 @@ require_once CUX_STUDIO_PATH . 'includes/core/class-cux-loader.php';
  */
 register_activation_hook( __FILE__, array( 'CUX_Activator', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'CUX_Activator', 'deactivate' ) );
+
+/**
+ * Add Website, LinkedIn, and GitHub links to the WordPress Plugins list row meta.
+ */
+add_filter(
+	'plugin_row_meta',
+	function ( array $links, string $file ): array {
+		if ( CUX_STUDIO_BASENAME === $file ) {
+			$links[] = '<a href="' . esc_url( CUX_AUTHOR_WEBSITE ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Website', 'commerce-ux-studio' ) . '</a>';
+			$links[] = '<a href="' . esc_url( CUX_AUTHOR_LINKEDIN ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'LinkedIn', 'commerce-ux-studio' ) . '</a>';
+			$links[] = '<a href="' . esc_url( CUX_AUTHOR_GITHUB ) . '" target="_blank" rel="noopener noreferrer">' . esc_html__( 'GitHub', 'commerce-ux-studio' ) . '</a>';
+		}
+		return $links;
+	},
+	10,
+	2
+);
 
 /**
  * Declare compatibility with WooCommerce High-Performance Order Storage (HPOS).
