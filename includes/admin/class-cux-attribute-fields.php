@@ -170,33 +170,46 @@ class CUX_Attribute_Fields {
 	public static function render_add_term_fields(): void {
 		?>
 		<div class="form-field">
-			<label for="cux_hex_primary"><?php esc_html_e( 'Primary Swatch Hex Color', 'commerce-ux-studio' ); ?></label>
+			<label for="cux_hex_primary"><?php esc_html_e( '1. Primary Swatch Color', 'commerce-ux-studio' ); ?></label>
 			<input type="text" name="cux_hex_primary" id="cux_hex_primary" class="cux-color-picker" value="" />
-			<p class="description"><?php esc_html_e( 'Top or main color of the circle swatch.', 'commerce-ux-studio' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Main color of the circle swatch.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
-			<label for="cux_hex_secondary"><?php esc_html_e( 'Secondary Swatch Hex Color (Optional Dual-Color)', 'commerce-ux-studio' ); ?></label>
+			<label for="cux_hex_secondary"><?php esc_html_e( '2. Secondary Color (For Dual-Color Split or Gradient)', 'commerce-ux-studio' ); ?></label>
 			<input type="text" name="cux_hex_secondary" id="cux_hex_secondary" class="cux-color-picker" value="" />
-			<p class="description"><?php esc_html_e( 'Set a second color to create a Specialized-style 50/50 split circle.', 'commerce-ux-studio' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Pick a second color to create a 50/50 split or smooth gradient.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
-			<label for="cux_split_style"><?php esc_html_e( 'Dual-Color Split & Finish Style', 'commerce-ux-studio' ); ?></label>
+			<label for="cux_split_style"><?php esc_html_e( '3. Swatch Finish / Gradient Style', 'commerce-ux-studio' ); ?></label>
 			<select name="cux_split_style" id="cux_split_style">
 				<option value="horizontal"><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom - Specialized Style)', 'commerce-ux-studio' ); ?></option>
 				<option value="angled"><?php esc_html_e( '45-Degree Angled Split', 'commerce-ux-studio' ); ?></option>
 				<option value="vertical"><?php esc_html_e( 'Vertical 50/50 Split (Left / Right)', 'commerce-ux-studio' ); ?></option>
-				<option value="metallic"><?php esc_html_e( 'Metallic Radial Sheen (Pinarello Style)', 'commerce-ux-studio' ); ?></option>
+				<option value="smooth_gradient"><?php esc_html_e( 'Smooth Ombre Gradient (Primary -> Secondary)', 'commerce-ux-studio' ); ?></option>
+				<option value="metallic"><?php esc_html_e( 'Metallic Liquid Chrome Sheen (Pinarello / S-Works Style)', 'commerce-ux-studio' ); ?></option>
+				<option value="carbon_matte"><?php esc_html_e( 'Carbon / Satin Matte Finish', 'commerce-ux-studio' ); ?></option>
 			</select>
 		</div>
 
 		<div class="form-field">
-			<label for="cux_term_tooltip"><?php esc_html_e( 'Swatch Tooltip / Spec Subtitle', 'commerce-ux-studio' ); ?></label>
+			<label for="cux_swatch_image_id"><?php esc_html_e( '4. Custom Swatch Texture / Image (Optional Override)', 'commerce-ux-studio' ); ?></label>
+			<div class="cux-term-img-wrap" style="display:flex;align-items:center;gap:10px;">
+				<input type="hidden" name="cux_swatch_image_id" id="cux_swatch_image_id" value="" />
+				<div id="cux_swatch_img_preview" style="width:40px;height:40px;border-radius:50%;border:1px solid #cbd5e1;background:#f8fafc;background-size:cover;background-position:center;"></div>
+				<button type="button" class="button" id="cux_upload_swatch_img_btn"><?php esc_html_e( 'Upload Texture / Photo', 'commerce-ux-studio' ); ?></button>
+				<button type="button" class="button" id="cux_remove_swatch_img_btn" style="display:none;"><?php esc_html_e( 'Remove', 'commerce-ux-studio' ); ?></button>
+			</div>
+			<p class="description"><?php esc_html_e( 'Upload a close-up paint chip, carbon weave, or fabric photo. Overrides hex colors if set.', 'commerce-ux-studio' ); ?></p>
+		</div>
+
+		<div class="form-field">
+			<label for="cux_term_tooltip"><?php esc_html_e( 'Swatch Tooltip / Spec Note', 'commerce-ux-studio' ); ?></label>
 			<input type="text" name="cux_term_tooltip" id="cux_term_tooltip" value="" />
-			<p class="description"><?php esc_html_e( 'Optional helper note or spec description shown on swatch hover.', 'commerce-ux-studio' ); ?></p>
 		</div>
 		<?php
+		self::render_term_media_inline_js();
 	}
 
 	/**
@@ -209,35 +222,52 @@ class CUX_Attribute_Fields {
 		$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
 		$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
 		$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
+		$img_id  = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
+		$img_url = $img_id > 0 ? wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
 		$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
 		if ( empty( $split ) ) {
 			$split = 'horizontal';
 		}
 		?>
 		<tr class="form-field">
-			<th scope="row" valign="top"><label for="cux_hex_primary"><?php esc_html_e( 'Primary Swatch Hex Color', 'commerce-ux-studio' ); ?></label></th>
+			<th scope="row" valign="top"><label for="cux_hex_primary"><?php esc_html_e( '1. Primary Swatch Color', 'commerce-ux-studio' ); ?></label></th>
 			<td>
 				<input type="text" name="cux_hex_primary" id="cux_hex_primary" class="cux-color-picker" value="<?php echo esc_attr( $hex_1 ); ?>" />
 			</td>
 		</tr>
 
 		<tr class="form-field">
-			<th scope="row" valign="top"><label for="cux_hex_secondary"><?php esc_html_e( 'Secondary Swatch Hex Color (Dual-Color)', 'commerce-ux-studio' ); ?></label></th>
+			<th scope="row" valign="top"><label for="cux_hex_secondary"><?php esc_html_e( '2. Secondary Color (Dual-Color or Gradient)', 'commerce-ux-studio' ); ?></label></th>
 			<td>
 				<input type="text" name="cux_hex_secondary" id="cux_hex_secondary" class="cux-color-picker" value="<?php echo esc_attr( $hex_2 ); ?>" />
-				<p class="description"><?php esc_html_e( 'Leave blank for solid single color, or pick a second color for 50/50 split circles.', 'commerce-ux-studio' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Leave blank for a single color, or pick a second color for a 50/50 split or gradient.', 'commerce-ux-studio' ); ?></p>
 			</td>
 		</tr>
 
 		<tr class="form-field">
-			<th scope="row" valign="top"><label for="cux_split_style"><?php esc_html_e( 'Dual-Color Split & Finish Style', 'commerce-ux-studio' ); ?></label></th>
+			<th scope="row" valign="top"><label for="cux_split_style"><?php esc_html_e( '3. Swatch Finish / Gradient Style', 'commerce-ux-studio' ); ?></label></th>
 			<td>
 				<select name="cux_split_style" id="cux_split_style">
 					<option value="horizontal" <?php selected( $split, 'horizontal' ); ?>><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom - Specialized Style)', 'commerce-ux-studio' ); ?></option>
 					<option value="angled" <?php selected( $split, 'angled' ); ?>><?php esc_html_e( '45-Degree Angled Split', 'commerce-ux-studio' ); ?></option>
 					<option value="vertical" <?php selected( $split, 'vertical' ); ?>><?php esc_html_e( 'Vertical 50/50 Split (Left / Right)', 'commerce-ux-studio' ); ?></option>
-					<option value="metallic" <?php selected( $split, 'metallic' ); ?>><?php esc_html_e( 'Metallic Radial Sheen (Pinarello Style)', 'commerce-ux-studio' ); ?></option>
+					<option value="smooth_gradient" <?php selected( $split, 'smooth_gradient' ); ?>><?php esc_html_e( 'Smooth Ombre Gradient (Primary -> Secondary)', 'commerce-ux-studio' ); ?></option>
+					<option value="metallic" <?php selected( $split, 'metallic' ); ?>><?php esc_html_e( 'Metallic Liquid Chrome Sheen (Pinarello / S-Works Style)', 'commerce-ux-studio' ); ?></option>
+					<option value="carbon_matte" <?php selected( $split, 'carbon_matte' ); ?>><?php esc_html_e( 'Carbon / Satin Matte Finish', 'commerce-ux-studio' ); ?></option>
 				</select>
+			</td>
+		</tr>
+
+		<tr class="form-field">
+			<th scope="row" valign="top"><label for="cux_swatch_image_id"><?php esc_html_e( '4. Custom Swatch Texture / Image', 'commerce-ux-studio' ); ?></label></th>
+			<td>
+				<div class="cux-term-img-wrap" style="display:flex;align-items:center;gap:10px;">
+					<input type="hidden" name="cux_swatch_image_id" id="cux_swatch_image_id" value="<?php echo esc_attr( $img_id > 0 ? (string) $img_id : '' ); ?>" />
+					<div id="cux_swatch_img_preview" style="width:44px;height:44px;border-radius:50%;border:2px solid #cbd5e1;background:#f8fafc;background-size:cover;background-position:center;<?php echo $img_url ? 'background-image:url(' . esc_url( $img_url ) . ');' : ''; ?>"></div>
+					<button type="button" class="button" id="cux_upload_swatch_img_btn"><?php esc_html_e( 'Upload Texture / Photo', 'commerce-ux-studio' ); ?></button>
+					<button type="button" class="button" id="cux_remove_swatch_img_btn" style="<?php echo $img_id > 0 ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Remove', 'commerce-ux-studio' ); ?></button>
+				</div>
+				<p class="description"><?php esc_html_e( 'Optional close-up paint chip or texture image for this swatch circle.', 'commerce-ux-studio' ); ?></p>
 			</td>
 		</tr>
 
@@ -247,6 +277,41 @@ class CUX_Attribute_Fields {
 				<input type="text" name="cux_term_tooltip" id="cux_term_tooltip" value="<?php echo esc_attr( $tooltip ); ?>" class="regular-text" />
 			</td>
 		</tr>
+		<?php
+		self::render_term_media_inline_js();
+	}
+
+	/**
+	 * Inline JS for the Attribute Term Swatch Image Uploader.
+	 */
+	private static function render_term_media_inline_js(): void {
+		?>
+		<script>
+		jQuery(function($){
+			$('#cux_upload_swatch_img_btn').off('click').on('click', function(e){
+				e.preventDefault();
+				var frame = wp.media({
+					title: 'Select Swatch Texture or Paint Chip Image',
+					button: { text: 'Use as Swatch' },
+					multiple: false
+				});
+				frame.on('select', function(){
+					var att = frame.state().get('selection').first().toJSON();
+					var url = (att.sizes && att.sizes.thumbnail) ? att.sizes.thumbnail.url : att.url;
+					$('#cux_swatch_image_id').val(att.id);
+					$('#cux_swatch_img_preview').css('background-image', 'url(' + url + ')');
+					$('#cux_remove_swatch_img_btn').show();
+				});
+				frame.open();
+			});
+			$('#cux_remove_swatch_img_btn').off('click').on('click', function(e){
+				e.preventDefault();
+				$('#cux_swatch_image_id').val('');
+				$('#cux_swatch_img_preview').css('background-image', 'none');
+				$(this).hide();
+			});
+		});
+		</script>
 		<?php
 	}
 
@@ -268,6 +333,9 @@ class CUX_Attribute_Fields {
 		}
 		if ( isset( $_POST['cux_split_style'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			update_term_meta( $term_id, '_cux_split_style', sanitize_key( wp_unslash( $_POST['cux_split_style'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		}
+		if ( isset( $_POST['cux_swatch_image_id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_swatch_image_id', absint( $_POST['cux_swatch_image_id'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_term_tooltip'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			update_term_meta( $term_id, '_cux_term_tooltip', sanitize_text_field( wp_unslash( $_POST['cux_term_tooltip'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -304,31 +372,72 @@ class CUX_Attribute_Fields {
 			return $content;
 		}
 
+		$img_id  = (int) get_term_meta( $term_id, '_cux_swatch_image_id', true );
+		$img_url = $img_id > 0 ? wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
+		if ( $img_url ) {
+			return sprintf(
+				'<span style="display:inline-block;width:30px;height:30px;border-radius:50%%;background:url(%s) center/cover no-repeat;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;"></span>',
+				esc_url( $img_url )
+			);
+		}
+
 		$hex_1 = (string) get_term_meta( $term_id, '_cux_hex_primary', true );
-		$hex_2 = (string) get_term_meta( $term_id, '_cux_hex_secondary', true );
+		$hex_2 = (string) get_term_meta( $term->term_id ?? $term_id, '_cux_hex_secondary', true );
 		$split = (string) get_term_meta( $term_id, '_cux_split_style', true );
 
 		if ( empty( $hex_1 ) ) {
-			return '<span style="color:#999;">—</span>';
+			return '<span style="color:#94a3b8;font-size:11px;">Auto</span>';
 		}
 
-		$bg_css = $hex_1;
-		if ( ! empty( $hex_2 ) ) {
-			if ( 'angled' === $split ) {
-				$bg_css = "linear-gradient(135deg, {$hex_1} 50%, {$hex_2} 50%)";
-			} elseif ( 'vertical' === $split ) {
-				$bg_css = "linear-gradient(90deg, {$hex_1} 50%, {$hex_2} 50%)";
-			} else {
-				// Default Horizontal 50/50 Split (Specialized style).
-				$bg_css = "linear-gradient(180deg, {$hex_1} 50%, {$hex_2} 50%)";
-			}
-		} elseif ( 'metallic' === $split ) {
-			$bg_css = "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.45), {$hex_1} 70%)";
-		}
+		$bg_css = self::compile_swatch_background_css( $hex_1, $hex_2, $split, '' );
 
 		return sprintf(
-			'<span style="display:inline-block;width:28px;height:28px;border-radius:50%%;background:%s;border:2px solid #fff;box-shadow:0 0 0 1px #ccc;"></span>',
+			'<span style="display:inline-block;width:30px;height:30px;border-radius:50%%;background:%s;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;"></span>',
 			esc_attr( $bg_css )
 		);
+	}
+
+	/**
+	 * Shared helper to compile CSS background for solid, 50/50 split, gradient, metallic, carbon, or image swatches.
+	 *
+	 * @param string $hex_1   Primary hex color.
+	 * @param string $hex_2   Secondary hex color.
+	 * @param string $split   Split or finish style.
+	 * @param string $img_url Optional texture image URL.
+	 * @return string Valid CSS background property value.
+	 */
+	public static function compile_swatch_background_css( string $hex_1, string $hex_2, string $split, string $img_url = '' ): string {
+		if ( ! empty( $img_url ) ) {
+			return 'url(' . esc_url_raw( $img_url ) . ') center/cover no-repeat';
+		}
+
+		if ( empty( $hex_1 ) ) {
+			$hex_1 = '#334155';
+		}
+
+		if ( ! empty( $hex_2 ) ) {
+			if ( 'angled' === $split ) {
+				return "linear-gradient(135deg, {$hex_1} 50%, {$hex_2} 50%)";
+			}
+			if ( 'vertical' === $split ) {
+				return "linear-gradient(90deg, {$hex_1} 50%, {$hex_2} 50%)";
+			}
+			if ( 'smooth_gradient' === $split ) {
+				return "linear-gradient(135deg, {$hex_1} 0%, {$hex_2} 100%)";
+			}
+			if ( 'metallic' === $split ) {
+				return "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), transparent 55%), linear-gradient(135deg, {$hex_1} 45%, {$hex_2} 55%)";
+			}
+			return "linear-gradient(180deg, {$hex_1} 50%, {$hex_2} 50%)";
+		}
+
+		if ( 'metallic' === $split ) {
+			return "radial-gradient(circle at 30% 28%, rgba(255,255,255,0.6), {$hex_1} 68%)";
+		}
+		if ( 'carbon_matte' === $split ) {
+			return "repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0px, rgba(255,255,255,0.07) 2px, transparent 2px, transparent 4px), {$hex_1}";
+		}
+
+		return $hex_1;
 	}
 }
