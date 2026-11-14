@@ -1,7 +1,7 @@
 <?php
 /**
  * Single Product Page (PDP) Swatches, Flatsome Flickity Gallery Bridge,
- * Omnichannel Delivery Switcher & "Complete Your Ride" Cross-Sell Configurator.
+ * Universal WooCommerce Shipping Zone/Class Delivery Switcher & "Complete Your Ride" Configurator.
  *
  * File Path: includes/frontend/class-cux-pdp-renderer.php
  *
@@ -30,11 +30,11 @@ class CUX_PDP_Renderer {
 		// 3. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
 		add_action( 'woocommerce_before_variations_form', array( __CLASS__, 'render_pdp_json_payload' ), 10 );
 
-		// 4. Render Omnichannel Delivery Switcher (Ship to Home vs In-Store Pickup) & Low Stock Warning above Add to Cart button.
+		// 4. Render Universal WooCommerce Delivery Method Switcher & Low Stock Warning above Add to Cart button.
 		add_action( 'woocommerce_before_single_variation', array( __CLASS__, 'render_delivery_and_low_stock_block' ), 25 );
 
 		// 5. Sync customer's selected Delivery Method Card directly into WooCommerce Cart & Checkout Shipping Session.
-		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_chosen_delivery_method_to_wc_session' ), 20, 6 );
+		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_chosen_delivery_method_to_wc_session' ), 20 );
 		add_action( 'wp_ajax_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 		add_action( 'wp_ajax_nopriv_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 
@@ -47,7 +47,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Enqueue frontend CSS and JS on WooCommerce pages (uses filemtime for instant cache busting).
+	 * Enqueue frontend CSS and JS on WooCommerce pages (uses filemtime for automatic cache busting).
 	 */
 	public static function enqueue_frontend_assets(): void {
 		if ( ! function_exists( 'is_woocommerce' ) || ( ! is_woocommerce() && ! is_cart() && ! is_checkout() && ! is_front_page() ) ) {
@@ -99,11 +99,11 @@ class CUX_PDP_Renderer {
 		if ( function_exists( 'is_product' ) && is_product() ) {
 			$product_id = get_the_ID();
 			if ( $product_id ) {
-				$config            = CUX_Inheritance_Engine::resolve_product_config( (int) $product_id );
-				$mobile_layout     = $config['mobile_gallery_layout'] ?? 'floating_right';
-				$preset            = $config['catalog_card_preset'] ?? 'specialized_spec';
-				$classes[]         = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
-				$classes[]         = 'cux-pdp-preset-' . sanitize_html_class( $preset );
+				$config        = CUX_Inheritance_Engine::resolve_product_config( (int) $product_id );
+				$mobile_layout = $config['mobile_gallery_layout'] ?? 'floating_right';
+				$preset        = $config['catalog_card_preset'] ?? 'specialized_spec';
+				$classes[]     = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
+				$classes[]     = 'cux-pdp-preset-' . sanitize_html_class( $preset );
 			}
 		}
 		return $classes;
@@ -162,10 +162,9 @@ class CUX_PDP_Renderer {
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
 
 		// Determine role and swatch style automatically.
-		$attr_clean = strtolower( (string) $attribute );
-		$role       = 'dimensional';
-		$style      = 'size_box';
-
+		$attr_clean   = strtolower( (string) $attribute );
+		$role         = 'dimensional';
+		$style        = 'size_box';
 		$primary_attr = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
 		$visual_attrs = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
 
@@ -424,187 +423,13 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 4. Render the Omnichannel Delivery Method Switcher (Synced with WooCommerce Shipping Zones & Settings).
+	 * 3. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
 	 */
-	public static function render_delivery_and_low_stock_block(): void {
+	public static function render_pdp_json_payload(): void {
 		global $product;
-		if ( ! is_object( $product ) ) {
+		if ( ! is_object( $product ) || ! $product->is_type( 'variable' ) ) {
 			return;
 		}
-
-		$product_id = $product->get_id();
-		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
-
-		if ( ( $config['enable_delivery_block'] ?? 'yes' ) !== 'yes' ) {
-			return;
-		}
-
-		// Discover active WooCommerce Shipping Methods (e.g., "Delivery within KSA: 150 ﷼" & "In-store pickup - Riyadh Branch").
-		$wc_methods   = self::discover_woocommerce_shipping_methods( $config );
-		$heading      = $config['delivery_heading_label'] ?? __( 'Delivery Method', 'commerce-ux-studio' );
-		$home_lead    = $config['default_home_lead'] ?? '4-7 days';
-		$pickup_lead  = $config['default_pickup_lead'] ?? '6-10 days';
-		$chosen_group = $wc_methods['active_group'];
-		?>
-		<div class="cux-fulfilment-wrapper" id="cux-fulfilment-block">
-			<div class="cux-fulfilment-header">
-				<strong><?php echo esc_html( $heading ); ?></strong>
-			</div>
-
-			<div class="cux-delivery-cards-grid">
-				<!-- Card 1: Home / Regional Delivery -->
-				<label class="cux-delivery-card <?php echo 'home' === $chosen_group ? 'is-active' : ''; ?>" data-method="ship_to_home" data-rate-id="<?php echo esc_attr( $wc_methods['home_rate_id'] ); ?>">
-					<input type="radio" name="cux_delivery_method" value="ship_to_home" data-rate-id="<?php echo esc_attr( $wc_methods['home_rate_id'] ); ?>" <?php checked( $chosen_group, 'home' ); ?> />
-					<input type="hidden" name="cux_chosen_rate_id" id="cux-chosen-rate-id" value="<?php echo esc_attr( 'pickup' === $chosen_group ? $wc_methods['pickup_rate_id'] : $wc_methods['home_rate_id'] ); ?>" />
-					<div class="cux-delivery-card-top">
-						<span class="cux-delivery-title"><?php echo esc_html( $wc_methods['home_title'] ); ?></span>
-						<?php if ( ! empty( $home_lead ) ) : ?>
-							<span class="cux-delivery-lead" id="cux-home-lead-text"><?php echo esc_html( $home_lead ); ?></span>
-						<?php endif; ?>
-					</div>
-					<div class="cux-delivery-card-sub">
-						<span class="cux-status-dot is-available"></span>
-						<span>
-							<?php
-							printf(
-								/* translators: %s: Formatted shipping cost */
-								esc_html__( 'Available • Shipping: %s', 'commerce-ux-studio' ),
-								'<strong id="cux-home-cost-text">' . wp_kses_post( $wc_methods['home_cost_html'] ) . '</strong>'
-							);
-							?>
-						</span>
-					</div>
-				</label>
-
-				<!-- Card 2: Showroom / In-Store Pickup -->
-				<label class="cux-delivery-card <?php echo 'pickup' === $chosen_group ? 'is-active' : ''; ?>" data-method="in_store_pickup" data-rate-id="<?php echo esc_attr( $wc_methods['pickup_rate_id'] ); ?>">
-					<input type="radio" name="cux_delivery_method" value="in_store_pickup" data-rate-id="<?php echo esc_attr( $wc_methods['pickup_rate_id'] ); ?>" <?php checked( $chosen_group, 'pickup' ); ?> />
-					<div class="cux-delivery-card-top">
-						<span class="cux-delivery-title"><?php echo esc_html( $wc_methods['pickup_title'] ); ?></span>
-						<?php if ( ! empty( $pickup_lead ) ) : ?>
-							<span class="cux-delivery-lead" id="cux-pickup-lead-text"><?php echo esc_html( $pickup_lead ); ?></span>
-						<?php endif; ?>
-					</div>
-					<div class="cux-delivery-card-sub" id="cux-pickup-status-line" data-default-subtitle="<?php echo esc_attr( $wc_methods['pickup_subtitle'] ); ?>">
-						<span class="cux-status-dot is-available"></span>
-						<span class="cux-pickup-mode-text"><?php echo esc_html( $wc_methods['pickup_subtitle'] ); ?></span>
-					</div>
-				</label>
-			</div>
-
-			<!-- Dynamic Low Stock / Out of Stock Status Banner -->
-			<div class="cux-stock-alert-banner" id="cux-stock-alert-banner" style="display:none;">
-				<span class="cux-stock-alert-dot"></span>
-				<strong class="cux-stock-alert-text"><?php esc_html_e( 'Low Stock', 'commerce-ux-studio' ); ?></strong>
-			</div>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Inspect WooCommerce Shipping Zones & Session to pull real shipping method titles, rate IDs, and costs.
-	 *
-	 * @param array $config Resolved Studio configuration.
-	 * @return array{home_title: string, home_cost_html: string, home_rate_id: string, pickup_title: string, pickup_subtitle: string, pickup_rate_id: string, active_group: string}
-	 */
-	private static function discover_woocommerce_shipping_methods( array $config ): array {
-		$sync_mode       = $config['wc_shipping_sync_mode'] ?? 'auto_wc';
-		$home_title      = ! empty( $config['home_card_title'] ) ? $config['home_card_title'] : __( 'Delivery within KSA', 'commerce-ux-studio' );
-		$home_cost_html  = ! empty( $config['default_home_cost'] ) ? esc_html( $config['default_home_cost'] ) : wc_price( 150 );
-		$home_rate_id    = '';
-		$pickup_title    = ! empty( $config['pickup_card_title'] ) ? $config['pickup_card_title'] : __( 'In-store pickup - Riyadh Branch', 'commerce-ux-studio' );
-		$pickup_subtitle = ! empty( $config['pickup_card_subtitle'] ) ? $config['pickup_card_subtitle'] : __( 'Free showroom assembly & handover', 'commerce-ux-studio' );
-		$pickup_rate_id  = '';
-
-		// Scan WooCommerce Shipping Zones for active Flat Rate / Free Shipping and Local Pickup methods.
-		if ( class_exists( 'WC_Shipping_Zones' ) ) {
-			$zones    = WC_Shipping_Zones::get_zones();
-			$zone_ids = array_keys( $zones );
-			$zone_ids[] = 0; // Rest of the World fallback zone.
-
-			foreach ( $zone_ids as $z_id ) {
-				$zone    = new WC_Shipping_Zone( $z_id );
-				$methods = $zone->get_shipping_methods( true );
-
-				foreach ( $methods as $instance_id => $method ) {
-					if ( ! is_object( $method ) ) {
-						continue;
-					}
-					$rate_id = $method->id . ':' . $instance_id;
-					$title   = method_exists( $method, 'get_title' ) ? $method->get_title() : '';
-
-					if ( in_array( $method->id, array( 'flat_rate', 'free_shipping' ), true ) && empty( $home_rate_id ) ) {
-						$home_rate_id = $rate_id;
-						if ( 'auto_wc' === $sync_mode && ! empty( $title ) ) {
-							$home_title = $title;
-						}
-						if ( 'auto_wc' === $sync_mode ) {
-							$raw_cost = method_exists( $method, 'get_option' ) ? $method->get_option( 'cost' ) : '';
-							if ( is_numeric( $raw_cost ) && (float) $raw_cost > 0 ) {
-								$home_cost_html = wc_price( (float) $raw_cost );
-							} elseif ( 'free_shipping' === $method->id || '0' === (string) $raw_cost ) {
-								$home_cost_html = __( 'Free', 'commerce-ux-studio' );
-							}
-						}
-					} elseif ( 'local_pickup' === $method->id && empty( $pickup_rate_id ) ) {
-						$pickup_rate_id = $rate_id;
-						if ( 'auto_wc' === $sync_mode && ! empty( $title ) ) {
-							$pickup_title = $title;
-						}
-					}
-				}
-			}
-		}
-
-		// Check if customer already has a chosen shipping method in their WooCommerce session.
-		$active_group = 'home';
-		if ( function_exists( 'WC' ) && WC()->session ) {
-			$chosen = WC()->session->get( 'chosen_shipping_methods' );
-			if ( is_array( $chosen ) && ! empty( $chosen[0] ) ) {
-				if ( false !== strpos( (string) $chosen[0], 'local_pickup' ) || ( ! empty( $pickup_rate_id ) && $chosen[0] === $pickup_rate_id ) ) {
-					$active_group = 'pickup';
-				}
-			}
-		}
-
-		return array(
-			'home_title'      => $home_title,
-			'home_cost_html'  => $home_cost_html,
-			'home_rate_id'    => $home_rate_id,
-			'pickup_title'    => $pickup_title,
-			'pickup_subtitle' => $pickup_subtitle,
-			'pickup_rate_id'  => $pickup_rate_id,
-			'active_group'    => $active_group,
-		);
-	}
-
-	/**
-	 * 5A. When a customer adds a product to the cart, save their selected Delivery Method card into the WooCommerce Shipping Session.
-	 */
-	public static function sync_chosen_delivery_method_to_wc_session(): void {
-		if ( ! function_exists( 'WC' ) || ! WC()->session ) {
-			return;
-		}
-
-		$rate_id = isset( $_REQUEST['cux_chosen_rate_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['cux_chosen_rate_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( ! empty( $rate_id ) ) {
-			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
-		}
-	}
-
-	/**
-	 * 5B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Card is clicked.
-	 */
-	public static function ajax_set_shipping_method(): void {
-		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
-
-		$rate_id = isset( $_POST['rate_id'] ) ? sanitize_text_field( wp_unslash( $_POST['rate_id'] ) ) : '';
-		if ( ! empty( $rate_id ) && function_exists( 'WC' ) && WC()->session ) {
-			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
-			wp_send_json_success( array( 'rate_id' => $rate_id ) );
-		}
-		wp_send_json_error();
-	}
 
 		$product_id = $product->get_id();
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
@@ -678,7 +503,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 4. Render the Omnichannel Delivery Method Switcher (Ship to Home vs. In-Store Pickup) & Low Stock Warning Banner.
+	 * 4. Render Universal WooCommerce Delivery Method Cards (Synced with WC Shipping Zones, Methods & Classes).
 	 */
 	public static function render_delivery_and_low_stock_block(): void {
 		global $product;
@@ -693,49 +518,58 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$home_lead   = $config['default_home_lead'] ?? '4-7 days';
-		$home_cost   = $config['default_home_cost'] ?? '$75.00';
-		$pickup_lead = $config['default_pickup_lead'] ?? '6-10 days';
+		$cards = self::get_product_shipping_cards( $product, $config );
+		if ( empty( $cards ) ) {
+			return;
+		}
+
+		$heading        = ! empty( $config['delivery_heading_label'] ) ? $config['delivery_heading_label'] : __( 'Delivery Method', 'commerce-ux-studio' );
+		$active_rate_id = '';
+		foreach ( $cards as $c ) {
+			if ( ! empty( $c['is_active'] ) ) {
+				$active_rate_id = $c['rate_id'];
+				break;
+			}
+		}
+		if ( empty( $active_rate_id ) && ! empty( $cards[0]['rate_id'] ) ) {
+			$active_rate_id          = $cards[0]['rate_id'];
+			$cards[0]['is_active'] = true;
+		}
 		?>
 		<div class="cux-fulfilment-wrapper" id="cux-fulfilment-block">
 			<div class="cux-fulfilment-header">
-				<strong><?php esc_html_e( 'Delivery Method', 'commerce-ux-studio' ); ?></strong>
+				<strong><?php echo esc_html( $heading ); ?></strong>
 			</div>
 
-			<div class="cux-delivery-cards-grid">
-				<!-- Card 1: Ship to Home -->
-				<label class="cux-delivery-card is-active" data-method="ship_to_home">
-					<input type="radio" name="cux_delivery_method" value="ship_to_home" checked="checked" />
-					<div class="cux-delivery-card-top">
-						<span class="cux-delivery-title"><?php esc_html_e( 'Ship to Home', 'commerce-ux-studio' ); ?></span>
-						<span class="cux-delivery-lead" id="cux-home-lead-text"><?php echo esc_html( $home_lead ); ?></span>
-					</div>
-					<div class="cux-delivery-card-sub">
-						<span class="cux-status-dot is-available"></span>
-						<span>
-							<?php
-							printf(
-								/* translators: %s: Estimated shipping cost */
-								esc_html__( 'Available • Estimated shipping: %s', 'commerce-ux-studio' ),
-								'<strong id="cux-home-cost-text">' . esc_html( $home_cost ) . '</strong>'
-							);
-							?>
-						</span>
-					</div>
-				</label>
+			<input type="hidden" name="cux_chosen_rate_id" id="cux-chosen-rate-id" value="<?php echo esc_attr( $active_rate_id ); ?>" />
 
-				<!-- Card 2: In-Store Pickup -->
-				<label class="cux-delivery-card" data-method="in_store_pickup">
-					<input type="radio" name="cux_delivery_method" value="in_store_pickup" />
-					<div class="cux-delivery-card-top">
-						<span class="cux-delivery-title"><?php esc_html_e( 'In-Store Pickup', 'commerce-ux-studio' ); ?></span>
-						<span class="cux-delivery-lead" id="cux-pickup-lead-text"><?php echo esc_html( $pickup_lead ); ?></span>
-					</div>
-					<div class="cux-delivery-card-sub" id="cux-pickup-status-line">
-						<span class="cux-status-dot is-available"></span>
-						<span class="cux-pickup-mode-text"><?php esc_html_e( 'Ship to store • Free showroom assembly', 'commerce-ux-studio' ); ?></span>
-					</div>
-				</label>
+			<div class="cux-delivery-cards-grid">
+				<?php foreach ( $cards as $idx => $card ) : ?>
+					<label class="cux-delivery-card <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
+						data-method="<?php echo esc_attr( $card['type'] ); ?>"
+						data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>">
+						<input type="radio"
+							name="cux_delivery_method"
+							value="<?php echo esc_attr( $card['rate_id'] ); ?>"
+							data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>"
+							<?php checked( ! empty( $card['is_active'] ), true ); ?> />
+
+						<div class="cux-delivery-card-top">
+							<span class="cux-delivery-title"><?php echo esc_html( $card['title'] ); ?></span>
+							<?php if ( ! empty( $card['lead_time'] ) ) : ?>
+								<span class="cux-delivery-lead"><?php echo esc_html( $card['lead_time'] ); ?></span>
+							<?php endif; ?>
+						</div>
+
+						<div class="cux-delivery-card-sub"
+							<?php echo 'pickup' === $card['type'] ? 'id="cux-pickup-status-line" data-default-subtitle="' . esc_attr( $card['subtitle_plain'] ) . '"' : ''; ?>>
+							<span class="cux-status-dot is-available"></span>
+							<span class="<?php echo 'pickup' === $card['type'] ? 'cux-pickup-mode-text' : 'cux-home-mode-text'; ?>">
+								<?php echo wp_kses_post( $card['subtitle_html'] ); ?>
+							</span>
+						</div>
+					</label>
+				<?php endforeach; ?>
 			</div>
 
 			<!-- Dynamic Low Stock / Out of Stock Status Banner -->
@@ -748,7 +582,305 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 5. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
+	 * Dynamically resolve all active WooCommerce Shipping Methods for the customer's Shipping Zone
+	 * and calculate the exact cost for this Product's WooCommerce Shipping Class.
+	 *
+	 * @param WC_Product $product Current product.
+	 * @param array      $config  Resolved Studio settings.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function get_product_shipping_cards( WC_Product $product, array $config ): array {
+		$sync_mode       = $config['wc_shipping_sync_mode'] ?? 'auto_wc';
+		$method_meta_map = isset( $config['shipping_method_meta'] ) && is_array( $config['shipping_method_meta'] ) ? $config['shipping_method_meta'] : array();
+
+		// Session chosen shipping method.
+		$chosen_rate_id = '';
+		if ( function_exists( 'WC' ) && WC()->session ) {
+			$chosen = WC()->session->get( 'chosen_shipping_methods' );
+			if ( is_array( $chosen ) && ! empty( $chosen[0] ) ) {
+				$chosen_rate_id = (string) $chosen[0];
+			}
+		}
+
+		$cards = array();
+
+		// 1. Auto-Discover from WooCommerce Shipping Zones & Shipping Classes.
+		if ( 'custom_text' !== $sync_mode && class_exists( 'WC_Shipping_Zones' ) ) {
+			$matched_methods = self::find_matching_zone_shipping_methods();
+
+			foreach ( $matched_methods as $rate_id => $method ) {
+				$custom_cfg = isset( $method_meta_map[ $rate_id ] ) && is_array( $method_meta_map[ $rate_id ] ) ? $method_meta_map[ $rate_id ] : array();
+				if ( isset( $custom_cfg['enabled'] ) && 'no' === $custom_cfg['enabled'] ) {
+					continue;
+				}
+
+				$is_pickup = ( 'local_pickup' === $method->id || false !== stripos( $method->id, 'pickup' ) );
+				$type      = $is_pickup ? 'pickup' : 'home';
+
+				$wc_title = method_exists( $method, 'get_title' ) ? (string) $method->get_title() : '';
+				if ( empty( $wc_title ) && method_exists( $method, 'get_method_title' ) ) {
+					$wc_title = (string) $method->get_method_title();
+				}
+
+				$title     = ! empty( $custom_cfg['title'] ) ? $custom_cfg['title'] : $wc_title;
+				$lead_time = ! empty( $custom_cfg['lead_time'] )
+					? $custom_cfg['lead_time']
+					: ( $is_pickup ? ( $config['default_pickup_lead'] ?? '6-10 days' ) : ( $config['default_home_lead'] ?? '4-7 days' ) );
+
+				// Calculate exact shipping cost for this product (including WooCommerce Shipping Classes!).
+				$cost_amount = self::calculate_method_cost_for_product( $method, $product );
+				$cost_html   = $cost_amount > 0 ? wc_price( $cost_amount ) : __( 'Free', 'commerce-ux-studio' );
+
+				if ( ! empty( $custom_cfg['subtitle'] ) ) {
+					$subtitle_plain = (string) $custom_cfg['subtitle'];
+					$subtitle_html  = esc_html( $subtitle_plain ) . ( $cost_amount > 0 ? ' • <strong>' . $cost_html . '</strong>' : '' );
+				} elseif ( $is_pickup ) {
+					$default_pickup_sub = ! empty( $config['pickup_card_subtitle'] ) ? $config['pickup_card_subtitle'] : __( 'Available for store pickup', 'commerce-ux-studio' );
+					$subtitle_plain     = $default_pickup_sub . ( $cost_amount > 0 ? ' • ' . wp_strip_all_tags( $cost_html ) : '' );
+					$subtitle_html      = esc_html( $default_pickup_sub ) . ( $cost_amount > 0 ? ' • <strong>' . $cost_html . '</strong>' : '' );
+				} else {
+					$subtitle_plain = sprintf( __( 'Available • Shipping: %s', 'commerce-ux-studio' ), wp_strip_all_tags( $cost_html ) );
+					$subtitle_html  = sprintf(
+						/* translators: %s: Formatted WooCommerce shipping cost */
+						esc_html__( 'Available • Shipping: %s', 'commerce-ux-studio' ),
+						'<strong>' . $cost_html . '</strong>'
+					);
+				}
+
+				$cards[] = array(
+					'rate_id'        => $rate_id,
+					'type'           => $type,
+					'title'          => $title,
+					'lead_time'      => $lead_time,
+					'subtitle_plain' => $subtitle_plain,
+					'subtitle_html'  => $subtitle_html,
+					'is_active'      => ( ! empty( $chosen_rate_id ) && $chosen_rate_id === $rate_id ),
+				);
+			}
+		}
+
+		// 2. Fallback or Manual Custom Wording Mode if no WooCommerce Zone methods were found.
+		if ( empty( $cards ) ) {
+			$home_title      = ! empty( $config['home_card_title'] ) ? $config['home_card_title'] : __( 'Standard Delivery', 'commerce-ux-studio' );
+			$home_lead       = $config['default_home_lead'] ?? '4-7 days';
+			$home_cost_raw   = $config['default_home_cost'] ?? '';
+			$home_cost_html  = is_numeric( $home_cost_raw ) ? wc_price( (float) $home_cost_raw ) : ( ! empty( $home_cost_raw ) ? esc_html( $home_cost_raw ) : __( 'Calculated at checkout', 'commerce-ux-studio' ) );
+			$pickup_title    = ! empty( $config['pickup_card_title'] ) ? $config['pickup_card_title'] : __( 'In-Store Pickup', 'commerce-ux-studio' );
+			$pickup_lead     = $config['default_pickup_lead'] ?? '6-10 days';
+			$pickup_subtitle = ! empty( $config['pickup_card_subtitle'] ) ? $config['pickup_card_subtitle'] : __( 'Available for branch pickup', 'commerce-ux-studio' );
+
+			$cards[] = array(
+				'rate_id'        => 'flat_rate',
+				'type'           => 'home',
+				'title'          => $home_title,
+				'lead_time'      => $home_lead,
+				'subtitle_plain' => wp_strip_all_tags( $home_cost_html ),
+				'subtitle_html'  => sprintf( esc_html__( 'Available • Shipping: %s', 'commerce-ux-studio' ), '<strong>' . $home_cost_html . '</strong>' ),
+				'is_active'      => ( false === strpos( $chosen_rate_id, 'local_pickup' ) ),
+			);
+
+			$cards[] = array(
+				'rate_id'        => 'local_pickup',
+				'type'           => 'pickup',
+				'title'          => $pickup_title,
+				'lead_time'      => $pickup_lead,
+				'subtitle_plain' => $pickup_subtitle,
+				'subtitle_html'  => esc_html( $pickup_subtitle ),
+				'is_active'      => ( false !== strpos( $chosen_rate_id, 'local_pickup' ) ),
+			);
+		}
+
+		return $cards;
+	}
+
+	/**
+	 * Match the customer's active WooCommerce Shipping Zone (or fallback to store base country / first configured zone)
+	 * and return all enabled shipping method instances.
+	 *
+	 * @return array<string, object> Map of rate_id => WC_Shipping_Method instance.
+	 */
+	private static function find_matching_zone_shipping_methods(): array {
+		$methods_map = array();
+
+		if ( ! class_exists( 'WC_Shipping_Zones' ) ) {
+			return $methods_map;
+		}
+
+		// 1. Try matching the customer's current shipping destination (or store base location).
+		$base_loc = function_exists( 'wc_get_base_location' ) ? wc_get_base_location() : array( 'country' => '', 'state' => '' );
+		$country  = $base_loc['country'] ?? '';
+		$state    = $base_loc['state'] ?? '';
+		$postcode = '';
+
+		if ( function_exists( 'WC' ) && isset( WC()->customer ) && is_object( WC()->customer ) ) {
+			$cust_country = WC()->customer->get_shipping_country();
+			if ( ! empty( $cust_country ) ) {
+				$country  = $cust_country;
+				$state    = WC()->customer->get_shipping_state();
+				$postcode = WC()->customer->get_shipping_postcode();
+			}
+		}
+
+		$package = array(
+			'destination' => array(
+				'country'  => $country,
+				'state'    => $state,
+				'postcode' => $postcode,
+			),
+		);
+
+		$matched_zone = WC_Shipping_Zones::get_zone_matching_package( $package );
+		if ( is_object( $matched_zone ) && method_exists( $matched_zone, 'get_shipping_methods' ) ) {
+			$zone_methods = $matched_zone->get_shipping_methods( true );
+			foreach ( $zone_methods as $instance_id => $method ) {
+				if ( is_object( $method ) ) {
+					$methods_map[ $method->id . ':' . $instance_id ] = $method;
+				}
+			}
+		}
+
+		// 2. If the customer's initial IP/address didn't match a zone with methods yet, inspect configured zones in order.
+		if ( empty( $methods_map ) ) {
+			$all_zones = WC_Shipping_Zones::get_zones();
+			foreach ( $all_zones as $z_data ) {
+				if ( empty( $z_data['zone_id'] ) ) {
+					continue;
+				}
+				$zone         = new WC_Shipping_Zone( (int) $z_data['zone_id'] );
+				$zone_methods = $zone->get_shipping_methods( true );
+				if ( ! empty( $zone_methods ) ) {
+					foreach ( $zone_methods as $instance_id => $method ) {
+						if ( is_object( $method ) ) {
+							$methods_map[ $method->id . ':' . $instance_id ] = $method;
+						}
+					}
+					break;
+				}
+			}
+		}
+
+		return $methods_map;
+	}
+
+	/**
+	 * Calculate the exact WooCommerce shipping cost for a specific Product, including its WooCommerce Shipping Class!
+	 *
+	 * Evaluates:
+	 * 1. Product's own Shipping Class ID (`$product->get_shipping_class_id()`), or first variation's Shipping Class ID.
+	 * 2. Flat Rate's `class_cost_{term_id}` setting, `no_class_cost` setting, and base `cost` setting.
+	 *
+	 * @param object     $method  WC_Shipping_Method instance.
+	 * @param WC_Product $product Product object.
+	 * @return float Calculated shipping cost.
+	 */
+	public static function calculate_method_cost_for_product( object $method, WC_Product $product ): float {
+		if ( 'free_shipping' === ( $method->id ?? '' ) ) {
+			return 0.0;
+		}
+
+		$total_cost = 0.0;
+
+		// 1. Base Method Cost.
+		$base_cost_raw = method_exists( $method, 'get_option' ) ? (string) $method->get_option( 'cost', '' ) : '';
+		if ( '' !== $base_cost_raw ) {
+			$total_cost += self::parse_wc_cost_formula( $base_cost_raw, (float) $product->get_price() );
+		}
+
+		// 2. Shipping Class Cost (if this is a Flat Rate method with shipping classes configured).
+		$shipping_class_id = (int) $product->get_shipping_class_id();
+
+		// If parent variable product has no shipping class set directly, check its first child variation.
+		if ( $shipping_class_id <= 0 && $product->is_type( 'variable' ) ) {
+			$children = $product->get_children();
+			if ( ! empty( $children[0] ) ) {
+				$first_var = wc_get_product( $children[0] );
+				if ( $first_var ) {
+					$shipping_class_id = (int) $first_var->get_shipping_class_id();
+				}
+			}
+		}
+
+		if ( method_exists( $method, 'get_option' ) ) {
+			if ( $shipping_class_id > 0 ) {
+				$class_cost_raw = (string) $method->get_option( 'class_cost_' . $shipping_class_id, '' );
+				if ( '' === $class_cost_raw ) {
+					$term = get_term( $shipping_class_id, 'product_shipping_class' );
+					if ( $term && ! is_wp_error( $term ) ) {
+						$class_cost_raw = (string) $method->get_option( 'class_cost_' . $term->slug, '' );
+					}
+				}
+				if ( '' !== $class_cost_raw ) {
+					$total_cost += self::parse_wc_cost_formula( $class_cost_raw, (float) $product->get_price() );
+				}
+			} else {
+				$no_class_raw = (string) $method->get_option( 'no_class_cost', '' );
+				if ( '' !== $no_class_raw ) {
+					$total_cost += self::parse_wc_cost_formula( $no_class_raw, (float) $product->get_price() );
+				}
+			}
+		}
+
+		return max( 0.0, $total_cost );
+	}
+
+	/**
+	 * Safely evaluate a WooCommerce Flat Rate cost string (handles numbers, `[qty]`, and `[cost]`).
+	 *
+	 * @param string $formula       Raw cost string from WooCommerce Flat Rate settings.
+	 * @param float  $product_price Product price for `[cost]` placeholders.
+	 * @return float
+	 */
+	private static function parse_wc_cost_formula( string $formula, float $product_price ): float {
+		$clean = trim( $formula );
+		if ( '' === $clean ) {
+			return 0.0;
+		}
+		if ( is_numeric( $clean ) ) {
+			return (float) $clean;
+		}
+
+		// Replace [qty] with 1 and [cost] with product price, then extract leading numeric value.
+		$replaced = str_ireplace( array( '[qty]', '[cost]' ), array( '1', (string) $product_price ), $clean );
+		if ( is_numeric( $replaced ) ) {
+			return (float) $replaced;
+		}
+		if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)/', $replaced, $matches ) ) {
+			return (float) $matches[1];
+		}
+
+		return 0.0;
+	}
+
+	/**
+	 * 5A. When a customer adds a product to the cart, save their selected Delivery Method card into the WooCommerce Shipping Session.
+	 */
+	public static function sync_chosen_delivery_method_to_wc_session(): void {
+		if ( ! function_exists( 'WC' ) || ! WC()->session ) {
+			return;
+		}
+
+		$rate_id = isset( $_REQUEST['cux_chosen_rate_id'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['cux_chosen_rate_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! empty( $rate_id ) ) {
+			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
+		}
+	}
+
+	/**
+	 * 5B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Card is clicked.
+	 */
+	public static function ajax_set_shipping_method(): void {
+		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
+
+		$rate_id = isset( $_POST['rate_id'] ) ? sanitize_text_field( wp_unslash( $_POST['rate_id'] ) ) : '';
+		if ( ! empty( $rate_id ) && function_exists( 'WC' ) && WC()->session ) {
+			WC()->session->set( 'chosen_shipping_methods', array( $rate_id ) );
+			wp_send_json_success( array( 'rate_id' => $rate_id ) );
+		}
+		wp_send_json_error();
+	}
+
+	/**
+	 * 6. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
 	 */
 	public static function render_complete_your_ride_block(): void {
 		global $product;
@@ -795,7 +927,6 @@ class CUX_PDP_Renderer {
 			</div>
 
 			<div class="cux-cr-body">
-				<!-- Compact List View -->
 				<div class="cux-cr-list">
 					<?php
 					foreach ( $items as $idx => $cs_prod ) :
@@ -810,7 +941,6 @@ class CUX_PDP_Renderer {
 							data-product-id="<?php echo esc_attr( (string) $cs_id ); ?>"
 							data-is-variable="<?php echo $cs_prod->is_type( 'variable' ) ? '1' : '0'; ?>">
 
-							<!-- Compact Summary Row -->
 							<div class="cux-cr-summary-row">
 								<div class="cux-cr-thumb">
 									<?php if ( $thumb_url ) : ?>
@@ -850,7 +980,6 @@ class CUX_PDP_Renderer {
 								</div>
 							</div>
 
-							<!-- Expandable In-Place Drawer for Variable Cross-Sells -->
 							<?php if ( $cs_prod->is_type( 'variable' ) && ! empty( $sizes ) ) : ?>
 								<div class="cux-cr-drawer" style="display:none;">
 									<div class="cux-cr-drawer-main">
@@ -929,7 +1058,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 6. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
+	 * 7. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
 	 */
 	public static function ajax_quick_add_to_cart(): void {
 		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
@@ -959,8 +1088,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Intelligent multi-color & metallic finish fallback resolver for complex bike color names
-	 * (e.g. "Black liquid metal / Satin black chrome foil").
+	 * Intelligent multi-color & metallic finish fallback resolver for complex color names.
 	 *
 	 * @param string $slug Color slug.
 	 * @return array{hex_1: string, hex_2: string, split: string}
