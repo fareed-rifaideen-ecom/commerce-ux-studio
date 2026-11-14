@@ -2,11 +2,13 @@
 /**
  * Global Product Attributes & Attribute Term Custom Fields.
  *
+ * File Path: includes/admin/class-cux-attribute-fields.php
+ *
  * Adds:
  * 1. Attribute-level fields (Products > Attributes): Attribute Role & Swatch Type.
  * 2. Term-level fields (Configure Terms): Primary Hex, Secondary Hex (Dual-Color),
- *    Split Direction (Horizontal 50/50, 45-deg, Vertical), Surface Finish (Metallic/Gloss),
- *    Custom Swatch Image ID, Tooltip, and a live preview column in the terms list table.
+ *    Split/Gradient Style (Horizontal 50/50, 45-deg, Vertical, Smooth Ombre, Metallic Chrome, Carbon Matte),
+ *    Custom Swatch Texture Image Uploader, Tooltip, and a live preview column in the terms list table.
  *
  * @package Commerce_UX_Studio
  */
@@ -25,13 +27,11 @@ class CUX_Attribute_Fields {
 			return;
 		}
 
-		// 1. Attribute-level fields (Products > Attributes Add/Edit screen).
 		add_action( 'woocommerce_after_add_attribute_fields', array( __CLASS__, 'render_add_attribute_fields' ) );
 		add_action( 'woocommerce_after_edit_attribute_fields', array( __CLASS__, 'render_edit_attribute_fields' ) );
 		add_action( 'woocommerce_attribute_added', array( __CLASS__, 'save_attribute_fields' ), 10, 2 );
 		add_action( 'woocommerce_attribute_updated', array( __CLASS__, 'save_attribute_fields' ), 10, 3 );
 
-		// 2. Term-level fields for all registered product attributes (pa_*).
 		add_action( 'admin_init', array( __CLASS__, 'register_attribute_term_hooks' ), 20 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_color_picker_and_media' ) );
 	}
@@ -67,15 +67,14 @@ class CUX_Attribute_Fields {
 				<option value="visual_secondary"><?php esc_html_e( 'Secondary Visual (e.g., Groupset / Wheelset - triggers spec gallery swap)', 'commerce-ux-studio' ); ?></option>
 				<option value="dimensional"><?php esc_html_e( 'Dimensional Only (e.g., Frame Size - instant click without slider reload)', 'commerce-ux-studio' ); ?></option>
 			</select>
-			<p class="description"><?php esc_html_e( 'Controls how the Stock Engine and Flatsome Flickity slider treat this attribute.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
 			<label for="cux_swatch_type"><?php esc_html_e( 'Frontend Swatch Style', 'commerce-ux-studio' ); ?></label>
 			<select name="cux_swatch_type" id="cux_swatch_type">
-				<option value="color_circle"><?php esc_html_e( 'Color Circle (Solid, Dual-Color 50/50 Split, or Metallic)', 'commerce-ux-studio' ); ?></option>
+				<option value="color_circle"><?php esc_html_e( 'Color Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
 				<option value="size_box"><?php esc_html_e( 'Square / Pill Button Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
-				<option value="radio_card"><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price Delta)', 'commerce-ux-studio' ); ?></option>
+				<option value="radio_card"><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price)', 'commerce-ux-studio' ); ?></option>
 				<option value="variation_image"><?php esc_html_e( 'Auto Variation Thumbnail Swatch', 'commerce-ux-studio' ); ?></option>
 				<option value="dropdown"><?php esc_html_e( 'Standard Dropdown Select', 'commerce-ux-studio' ); ?></option>
 			</select>
@@ -110,9 +109,9 @@ class CUX_Attribute_Fields {
 			</th>
 			<td>
 				<select name="cux_swatch_type" id="cux_swatch_type">
-					<option value="color_circle" <?php selected( $type, 'color_circle' ); ?>><?php esc_html_e( 'Color Circle (Solid, Dual-Color 50/50 Split, or Metallic)', 'commerce-ux-studio' ); ?></option>
+					<option value="color_circle" <?php selected( $type, 'color_circle' ); ?>><?php esc_html_e( 'Color Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
 					<option value="size_box" <?php selected( $type, 'size_box' ); ?>><?php esc_html_e( 'Square / Pill Button Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
-					<option value="radio_card" <?php selected( $type, 'radio_card' ); ?>><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price Delta)', 'commerce-ux-studio' ); ?></option>
+					<option value="radio_card" <?php selected( $type, 'radio_card' ); ?>><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price)', 'commerce-ux-studio' ); ?></option>
 					<option value="variation_image" <?php selected( $type, 'variation_image' ); ?>><?php esc_html_e( 'Auto Variation Thumbnail Swatch', 'commerce-ux-studio' ); ?></option>
 					<option value="dropdown" <?php selected( $type, 'dropdown' ); ?>><?php esc_html_e( 'Standard Dropdown Select', 'commerce-ux-studio' ); ?></option>
 				</select>
@@ -124,9 +123,9 @@ class CUX_Attribute_Fields {
 	/**
 	 * Save Attribute-level Role and Swatch Type.
 	 *
-	 * @param int   $attr_id   Attribute ID.
-	 * @param array $data      Attribute data.
-	 * @param mixed $old_slug  Optional old attribute slug.
+	 * @param int   $attr_id  Attribute ID.
+	 * @param array $data     Attribute data.
+	 * @param mixed $old_slug Optional old attribute slug.
 	 */
 	public static function save_attribute_fields( int $attr_id, array $data, $old_slug = '' ): void {
 		if ( isset( $_POST['cux_attr_role'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -158,37 +157,34 @@ class CUX_Attribute_Fields {
 			add_action( "created_{$taxonomy}", array( __CLASS__, 'save_term_fields' ), 10, 2 );
 			add_action( "edited_{$taxonomy}", array( __CLASS__, 'save_term_fields' ), 10, 2 );
 
-			// Add live swatch preview column in WP Admin Terms table.
 			add_filter( "manage_edit-{$taxonomy}_columns", array( __CLASS__, 'add_term_preview_column' ) );
 			add_filter( "manage_{$taxonomy}_custom_column", array( __CLASS__, 'render_term_preview_column' ), 10, 3 );
 		}
 	}
 
 	/**
-	 * Render custom swatch fields when adding a new attribute term (e.g. a new Color or Groupset).
+	 * Render custom swatch fields when adding a new attribute term.
 	 */
 	public static function render_add_term_fields(): void {
 		?>
 		<div class="form-field">
 			<label for="cux_hex_primary"><?php esc_html_e( '1. Primary Swatch Color', 'commerce-ux-studio' ); ?></label>
 			<input type="text" name="cux_hex_primary" id="cux_hex_primary" class="cux-color-picker" value="" />
-			<p class="description"><?php esc_html_e( 'Main color of the circle swatch.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
 			<label for="cux_hex_secondary"><?php esc_html_e( '2. Secondary Color (For Dual-Color Split or Gradient)', 'commerce-ux-studio' ); ?></label>
 			<input type="text" name="cux_hex_secondary" id="cux_hex_secondary" class="cux-color-picker" value="" />
-			<p class="description"><?php esc_html_e( 'Pick a second color to create a 50/50 split or smooth gradient.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
 			<label for="cux_split_style"><?php esc_html_e( '3. Swatch Finish / Gradient Style', 'commerce-ux-studio' ); ?></label>
 			<select name="cux_split_style" id="cux_split_style">
-				<option value="horizontal"><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom - Specialized Style)', 'commerce-ux-studio' ); ?></option>
+				<option value="horizontal"><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom)', 'commerce-ux-studio' ); ?></option>
 				<option value="angled"><?php esc_html_e( '45-Degree Angled Split', 'commerce-ux-studio' ); ?></option>
 				<option value="vertical"><?php esc_html_e( 'Vertical 50/50 Split (Left / Right)', 'commerce-ux-studio' ); ?></option>
 				<option value="smooth_gradient"><?php esc_html_e( 'Smooth Ombre Gradient (Primary -> Secondary)', 'commerce-ux-studio' ); ?></option>
-				<option value="metallic"><?php esc_html_e( 'Metallic Liquid Chrome Sheen (Pinarello / S-Works Style)', 'commerce-ux-studio' ); ?></option>
+				<option value="metallic"><?php esc_html_e( 'Metallic Liquid Chrome Sheen', 'commerce-ux-studio' ); ?></option>
 				<option value="carbon_matte"><?php esc_html_e( 'Carbon / Satin Matte Finish', 'commerce-ux-studio' ); ?></option>
 			</select>
 		</div>
@@ -201,7 +197,6 @@ class CUX_Attribute_Fields {
 				<button type="button" class="button" id="cux_upload_swatch_img_btn"><?php esc_html_e( 'Upload Texture / Photo', 'commerce-ux-studio' ); ?></button>
 				<button type="button" class="button" id="cux_remove_swatch_img_btn" style="display:none;"><?php esc_html_e( 'Remove', 'commerce-ux-studio' ); ?></button>
 			</div>
-			<p class="description"><?php esc_html_e( 'Upload a close-up paint chip, carbon weave, or fabric photo. Overrides hex colors if set.', 'commerce-ux-studio' ); ?></p>
 		</div>
 
 		<div class="form-field">
@@ -223,7 +218,7 @@ class CUX_Attribute_Fields {
 		$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
 		$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
 		$img_id  = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
-		$img_url = $img_id > 0 ? wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
+		$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
 		$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
 		if ( empty( $split ) ) {
 			$split = 'horizontal';
@@ -240,7 +235,6 @@ class CUX_Attribute_Fields {
 			<th scope="row" valign="top"><label for="cux_hex_secondary"><?php esc_html_e( '2. Secondary Color (Dual-Color or Gradient)', 'commerce-ux-studio' ); ?></label></th>
 			<td>
 				<input type="text" name="cux_hex_secondary" id="cux_hex_secondary" class="cux-color-picker" value="<?php echo esc_attr( $hex_2 ); ?>" />
-				<p class="description"><?php esc_html_e( 'Leave blank for a single color, or pick a second color for a 50/50 split or gradient.', 'commerce-ux-studio' ); ?></p>
 			</td>
 		</tr>
 
@@ -248,11 +242,11 @@ class CUX_Attribute_Fields {
 			<th scope="row" valign="top"><label for="cux_split_style"><?php esc_html_e( '3. Swatch Finish / Gradient Style', 'commerce-ux-studio' ); ?></label></th>
 			<td>
 				<select name="cux_split_style" id="cux_split_style">
-					<option value="horizontal" <?php selected( $split, 'horizontal' ); ?>><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom - Specialized Style)', 'commerce-ux-studio' ); ?></option>
+					<option value="horizontal" <?php selected( $split, 'horizontal' ); ?>><?php esc_html_e( 'Horizontal 50/50 Split (Top / Bottom)', 'commerce-ux-studio' ); ?></option>
 					<option value="angled" <?php selected( $split, 'angled' ); ?>><?php esc_html_e( '45-Degree Angled Split', 'commerce-ux-studio' ); ?></option>
 					<option value="vertical" <?php selected( $split, 'vertical' ); ?>><?php esc_html_e( 'Vertical 50/50 Split (Left / Right)', 'commerce-ux-studio' ); ?></option>
 					<option value="smooth_gradient" <?php selected( $split, 'smooth_gradient' ); ?>><?php esc_html_e( 'Smooth Ombre Gradient (Primary -> Secondary)', 'commerce-ux-studio' ); ?></option>
-					<option value="metallic" <?php selected( $split, 'metallic' ); ?>><?php esc_html_e( 'Metallic Liquid Chrome Sheen (Pinarello / S-Works Style)', 'commerce-ux-studio' ); ?></option>
+					<option value="metallic" <?php selected( $split, 'metallic' ); ?>><?php esc_html_e( 'Metallic Liquid Chrome Sheen', 'commerce-ux-studio' ); ?></option>
 					<option value="carbon_matte" <?php selected( $split, 'carbon_matte' ); ?>><?php esc_html_e( 'Carbon / Satin Matte Finish', 'commerce-ux-studio' ); ?></option>
 				</select>
 			</td>
@@ -267,7 +261,6 @@ class CUX_Attribute_Fields {
 					<button type="button" class="button" id="cux_upload_swatch_img_btn"><?php esc_html_e( 'Upload Texture / Photo', 'commerce-ux-studio' ); ?></button>
 					<button type="button" class="button" id="cux_remove_swatch_img_btn" style="<?php echo $img_id > 0 ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Remove', 'commerce-ux-studio' ); ?></button>
 				</div>
-				<p class="description"><?php esc_html_e( 'Optional close-up paint chip or texture image for this swatch circle.', 'commerce-ux-studio' ); ?></p>
 			</td>
 		</tr>
 
@@ -373,7 +366,7 @@ class CUX_Attribute_Fields {
 		}
 
 		$img_id  = (int) get_term_meta( $term_id, '_cux_swatch_image_id', true );
-		$img_url = $img_id > 0 ? wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
+		$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
 		if ( $img_url ) {
 			return sprintf(
 				'<span style="display:inline-block;width:30px;height:30px;border-radius:50%%;background:url(%s) center/cover no-repeat;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1;"></span>',
@@ -382,7 +375,7 @@ class CUX_Attribute_Fields {
 		}
 
 		$hex_1 = (string) get_term_meta( $term_id, '_cux_hex_primary', true );
-		$hex_2 = (string) get_term_meta( $term->term_id ?? $term_id, '_cux_hex_secondary', true );
+		$hex_2 = (string) get_term_meta( $term_id, '_cux_hex_secondary', true );
 		$split = (string) get_term_meta( $term_id, '_cux_split_style', true );
 
 		if ( empty( $hex_1 ) ) {
