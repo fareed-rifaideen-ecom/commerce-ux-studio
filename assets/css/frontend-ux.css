@@ -287,7 +287,7 @@ color: var(--cux-muted);
 margin-top: 2px;
 }
 
-/* Clean Full-Width Stacked Layout (Hides Flatsome's narrow left th.label column) */
+/* Full-Width Stacked Layout (Hides Flatsome's narrow left th.label column) */
 form.variations_form table.variations {
 width: 100% !important;
 border-collapse: collapse !important;
@@ -307,7 +307,6 @@ margin-bottom: 18px !important;
 padding: 0 !important;
 }
 
-/* Hide redundant WooCommerce left column label because our header bar renders "SIZE: S2" inline */
 form.variations_form table.variations th.label,
 form.variations_form table.variations td.label {
 display: none !important;
@@ -441,7 +440,7 @@ background-size: cover !important;
 background-position: center !important;
 }
 
-/* Swatch Type 2: High-Contrast Size Pill / Box Buttons (Overrides Flatsome button color!) */
+/* Swatch Type 2: High-Contrast Size Pill / Box Buttons */
 .cux-swatch-style-size_box button.cux-swatch-item {
 min-width: 60px !important;
 min-height: 42px !important;
@@ -712,7 +711,6 @@ background: #d97706;
 flex-shrink: 0;
 }
 
-/* Hide WooCommerce's duplicate "Only 1 left in stock" line when our Fulfilment Banner is present */
 .woocommerce-variation-availability p.stock.in-stock {
 display: none !important;
 }
@@ -870,7 +868,6 @@ z-index: 15;
 pointer-events: none;
 }
 
-/* Tablet & Narrow Columns (Max 1024px) */
 @media (max-width: 1024px) {
 .cux-delivery-cards-grid {
 grid-template-columns: 1fr;
@@ -881,7 +878,6 @@ min-height: 44px !important;
 }
 }
 
-/* Mobile View (< 767px): Touch-Optimized Swatches & Floating Gallery Overlays */
 @media (max-width: 767px) {
 .cux-swatch-style-color_circle button.cux-swatch-item,
 .cux-swatch-style-variation_image button.cux-swatch-item {
@@ -916,7 +912,6 @@ min-height: 44px !important;
 	width: 100%;
 }
 
-/* Floating Right Vertical Glass Thumbnail Strip on Mobile */
 body.cux-mobile-gallery-floating_right .product-gallery {
 	position: relative;
 }
