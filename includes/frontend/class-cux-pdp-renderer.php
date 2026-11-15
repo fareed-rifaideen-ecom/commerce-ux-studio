@@ -1,7 +1,7 @@
 <?php
 /**
- * Single Product Page (PDP) Swatches, Flatsome Flickity Gallery Bridge,
- * Brand Sync, Size Guide Modal, Multi-Layout Delivery Switcher & "Complete Your Ride" (v2.3).
+ * Single Product Page (PDP) Swatches, Cross-Attribute Availability Engine,
+ * Strict Variation Gallery Isolation, Brand Sync, Size Guide Modal & Delivery Switcher (v2.3).
  *
  * File Path: includes/frontend/class-cux-pdp-renderer.php
  *
@@ -16,42 +16,53 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CUX_PDP_Renderer {
 
 	/**
+	 * Recursion guard for gallery image filters.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static $filtering_pdp_gallery = array();
+
+	/**
 	 * Initialize frontend PDP hooks and AJAX handlers.
 	 */
 	public static function init(): void {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ), 30 );
 		add_filter( 'body_class', array( __CLASS__, 'add_pdp_body_classes' ) );
 
-		// 1. Render Synced WooCommerce Brand (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
+		// 1. Server-Side Strict Variation Gallery Isolation on Single Product Pages (shows ONLY selected variation's images).
+		add_filter( 'woocommerce_product_get_image_id', array( __CLASS__, 'filter_pdp_strict_main_image' ), 25, 2 );
+		add_filter( 'woocommerce_product_get_gallery_image_ids', array( __CLASS__, 'filter_pdp_strict_gallery_ids' ), 25, 2 );
+
+		// 2. Render Synced WooCommerce Brand (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_pdp_brand_header' ), 4 );
 
-		// 2. Render Clean 1-Line Spec Subtitle below Single Product Title (Option 2A vs Option 2B).
+		// 3. Render Clean 1-Line Spec Subtitle below Single Product Title (Option 2A vs Option 2B).
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_pdp_spec_subtitle' ), 6 );
 
-		// 3. Enhance Variation Attribute Dropdowns with Visual/Image Swatches, Active Contrast & Size Guide Trigger.
+		// 4. Enhance Variation Attribute Dropdowns with Image / Colour / Text Swatches, Active Contrast & Size Guide Trigger.
 		add_filter( 'woocommerce_dropdown_variation_attribute_options_html', array( __CLASS__, 'render_custom_swatch_controls' ), 20, 2 );
 
-		// 4. Reposition WooCommerce's native "Clear" link so it never overlaps the Colour label.
+		// 5. Reposition WooCommerce's native "Clear" link so it never overlaps the Colour label.
 		add_filter( 'woocommerce_reset_variations_link', array( __CLASS__, 'filter_reset_variations_link' ), 20 );
 
-		// 5. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
+		// 6. Inject Variation Availability Matrix & Strict Variation Gallery JSON payload before Variations Form.
 		add_action( 'woocommerce_before_variations_form', array( __CLASS__, 'render_pdp_json_payload' ), 10 );
 
-		// 6. Render Configurable Delivery Switcher (6A Rows / 6B Tabs / 6C Cards) & Low Stock Warning above Add to Cart.
+		// 7. Render Configurable Delivery Switcher (6A Rows / 6B Tabs / 6C Cards) & Low Stock Warning above Add to Cart.
 		add_action( 'woocommerce_before_single_variation', array( __CLASS__, 'render_delivery_and_low_stock_block' ), 25 );
 
-		// 7. Sync customer's selected Delivery Method directly into WooCommerce Cart & Checkout Shipping Session.
+		// 8. Sync customer's selected Delivery Method directly into WooCommerce Cart & Checkout Shipping Session.
 		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_chosen_delivery_method_to_wc_session' ), 20 );
 		add_action( 'wp_ajax_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 		add_action( 'wp_ajax_nopriv_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 
-		// 8. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
+		// 9. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
 		add_action( 'woocommerce_after_add_to_cart_form', array( __CLASS__, 'render_complete_your_ride_block' ), 15 );
 
-		// 9. Render Smart Size Guide Lightbox Modal (supports [block id="..."] shortcodes, slugs, or IDs) in Footer.
+		// 10. Render Smart Size Guide Lightbox Modal (supports [block id="..."] shortcodes, slugs, or IDs) in Footer.
 		add_action( 'wp_footer', array( __CLASS__, 'render_size_guide_modal' ), 25 );
 
-		// 10. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
+		// 11. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
 		add_action( 'wp_ajax_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 		add_action( 'wp_ajax_nopriv_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 	}
@@ -92,6 +103,7 @@ class CUX_PDP_Renderer {
 			'i18nAdded'      => __( 'Added to Cart', 'commerce-ux-studio' ),
 			'i18nLowStock'   => __( 'Low Stock', 'commerce-ux-studio' ),
 			'i18nInStock'    => __( 'In Stock', 'commerce-ux-studio' ),
+			'i18nUnavailable'=> __( 'Unavailable in selected option', 'commerce-ux-studio' ),
 		);
 
 		wp_localize_script( 'cux-frontend-ux', 'cuxFrontendVars', $localized_payload );
@@ -110,7 +122,7 @@ class CUX_PDP_Renderer {
 				$config         = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 				$mobile_layout  = $config['mobile_gallery_layout'] ?? 'floating_right';
 				$preset         = $config['catalog_card_preset'] ?? 'specialized_spec';
-				$active_style   = $config['swatch_active_style'] ?? 'checkmark_4a';
+				$active_style   = self::normalize_contrast_mode( (string) ( $config['swatch_active_style'] ?? 'option_4a' ) );
 				$sticky_gallery = $config['sticky_desktop_gallery'] ?? 'yes';
 
 				$classes[] = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
@@ -126,7 +138,178 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 1. Render Synced WooCommerce Brand on Single Product Header (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
+	 * 1A. Server-Side Strict Variation Main Image Filter on Single Product Page.
+	 *     Ensures the initial page load shows the active/default variation's exact main image.
+	 *
+	 * @param mixed      $image_id Current image ID.
+	 * @param WC_Product $product  Product object.
+	 * @return mixed
+	 */
+	public static function filter_pdp_strict_main_image( $image_id, $product ) {
+		if ( is_admin() || ! function_exists( 'is_product' ) || ! is_product() || ! is_object( $product ) || ! method_exists( $product, 'is_type' ) || ! $product->is_type( 'variable' ) ) {
+			return $image_id;
+		}
+
+		$product_id = (int) $product->get_id();
+		if ( (int) get_queried_object_id() !== $product_id ) {
+			return $image_id;
+		}
+
+		$active_var_id = self::resolve_initial_active_variation_id( $product );
+		if ( $active_var_id > 0 ) {
+			$var_thumb = (int) get_post_meta( $active_var_id, '_thumbnail_id', true );
+			if ( $var_thumb > 0 ) {
+				return $var_thumb;
+			}
+		}
+
+		return $image_id;
+	}
+
+	/**
+	 * 1B. Server-Side Strict Variation Gallery Filter on Single Product Page.
+	 *     When `strict_variation` is enabled, hides all other variations' photos from the initial gallery
+	 *     so ONLY the selected variation's own image(s) are rendered.
+	 *
+	 * @param array      $gallery_ids Current gallery attachment IDs.
+	 * @param WC_Product $product     Product object.
+	 * @return array
+	 */
+	public static function filter_pdp_strict_gallery_ids( $gallery_ids, $product ): array {
+		$gallery_ids = is_array( $gallery_ids ) ? $gallery_ids : array();
+
+		if ( is_admin() || ! function_exists( 'is_product' ) || ! is_product() || ! is_object( $product ) || ! method_exists( $product, 'is_type' ) || ! $product->is_type( 'variable' ) ) {
+			return $gallery_ids;
+		}
+
+		$product_id = (int) $product->get_id();
+		if ( (int) get_queried_object_id() !== $product_id || ! empty( self::$filtering_pdp_gallery[ $product_id ] ) ) {
+			return $gallery_ids;
+		}
+
+		self::$filtering_pdp_gallery[ $product_id ] = true;
+
+		try {
+			$isolation_mode = self::resolve_gallery_isolation_mode( $product_id );
+			$active_var_id  = self::resolve_initial_active_variation_id( $product );
+
+			if ( $active_var_id > 0 ) {
+				$own_main  = (int) get_post_meta( $active_var_id, '_thumbnail_id', true );
+				$own_extra = class_exists( 'CUX_Stock_Calculator' )
+					? CUX_Stock_Calculator::get_variation_extra_image_ids( $active_var_id )
+					: array();
+
+				if ( 'strict_variation' === $isolation_mode ) {
+					// Strict Selected Variation Only: return ONLY this variation's extra gallery angles (excluding main image).
+					$strict_extra = array_values( array_unique( array_diff( $own_extra, array( $own_main ) ) ) );
+					unset( self::$filtering_pdp_gallery[ $product_id ] );
+					return $strict_extra;
+				}
+
+				// Colorway Group mode: return all angles for the active colourway, excluding other colours.
+				$cache = CUX_Cache_Manager::get_product_cache( $product_id );
+				if ( ! empty( $cache['availability_matrix'][ $active_var_id ]['gallery_ids'] ) ) {
+					$group_ids = (array) $cache['availability_matrix'][ $active_var_id ]['gallery_ids'];
+					$group_ext = array_values( array_unique( array_diff( array_map( 'absint', $group_ids ), array( $own_main ) ) ) );
+					unset( self::$filtering_pdp_gallery[ $product_id ] );
+					return $group_ext;
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// Safe fallback.
+		}
+
+		unset( self::$filtering_pdp_gallery[ $product_id ] );
+		return $gallery_ids;
+	}
+
+	/**
+	 * Resolve whether this product uses `strict_variation` or `colorway_group` gallery isolation.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return string `strict_variation` or `colorway_group`.
+	 */
+	public static function resolve_gallery_isolation_mode( int $product_id ): string {
+		$product_override = (string) get_post_meta( $product_id, '_cux_pdp_gallery_isolation', true );
+		if ( ! empty( $product_override ) && 'inherit' !== $product_override ) {
+			return $product_override;
+		}
+
+		$config = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		return (string) ( $config['pdp_gallery_isolation'] ?? 'strict_variation' );
+	}
+
+	/**
+	 * Determine which variation ID is active on initial page load (checks URL deep-link params -> default attributes -> winner).
+	 *
+	 * @param WC_Product $product Variable product.
+	 * @return int Variation ID.
+	 */
+	private static function resolve_initial_active_variation_id( WC_Product $product ): int {
+		$product_id = (int) $product->get_id();
+		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
+		$avail_map  = $cache['availability_matrix'] ?? array();
+
+		// 1. Check URL query parameters (?attribute_pa_...=...) or default attributes.
+		$target_attrs = array();
+		$defaults     = $product->get_default_attributes();
+		if ( is_array( $defaults ) ) {
+			foreach ( $defaults as $k => $v ) {
+				$clean_k                  = strtolower( str_replace( 'attribute_', '', (string) $k ) );
+				$target_attrs[ $clean_k ] = sanitize_title( (string) $v );
+			}
+		}
+
+		if ( ! empty( $_GET ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			foreach ( $_GET as $k => $v ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				if ( 0 === strpos( (string) $k, 'attribute_' ) && '' !== $v ) {
+					$clean_k                  = strtolower( str_replace( 'attribute_', '', sanitize_text_field( wp_unslash( (string) $k ) ) ) );
+					$target_attrs[ $clean_k ] = sanitize_title( wp_unslash( (string) $v ) );
+				}
+			}
+		}
+
+		if ( ! empty( $target_attrs ) && ! empty( $avail_map ) ) {
+			foreach ( $avail_map as $var_id => $var_data ) {
+				$var_attrs = $var_data['attributes'] ?? array();
+				$matched   = true;
+				foreach ( $target_attrs as $req_k => $req_slug ) {
+					$req_no_pa = 0 === strpos( $req_k, 'pa_' ) ? substr( $req_k, 3 ) : $req_k;
+					$found_key = false;
+					foreach ( $var_attrs as $vk => $vv ) {
+						$vk_low   = strtolower( str_replace( 'attribute_', '', (string) $vk ) );
+						$vk_no_pa = 0 === strpos( $vk_low, 'pa_' ) ? substr( $vk_low, 3 ) : $vk_low;
+						if ( $vk_low === $req_k || $vk_no_pa === $req_no_pa ) {
+							$found_key = true;
+							if ( '' !== (string) $vv && sanitize_title( (string) $vv ) !== $req_slug ) {
+								$matched = false;
+							}
+							break;
+						}
+					}
+					if ( ! $found_key ) {
+						$matched = false;
+					}
+					if ( ! $matched ) {
+						break;
+					}
+				}
+				if ( $matched ) {
+					return (int) $var_id;
+				}
+			}
+		}
+
+		if ( ! empty( $cache['winner_var_id'] ) ) {
+			return (int) $cache['winner_var_id'];
+		}
+
+		$children = $product->get_children();
+		return ! empty( $children[0] ) ? (int) $children[0] : 0;
+	}
+
+	/**
+	 * 2. Render Synced WooCommerce Brand on Single Product Header (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
 	 */
 	public static function render_pdp_brand_header(): void {
 		global $product;
@@ -136,9 +319,9 @@ class CUX_PDP_Renderer {
 
 		$product_id = (int) $product->get_id();
 		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
-		$brand_mode = $config['brand_sync_display'] ?? 'eyebrow_1a';
+		$brand_mode = (string) ( $config['brand_sync_display'] ?? 'option_1a' );
 
-		if ( 'cards_schema_1c' === $brand_mode ) {
+		if ( 'cards_schema_1c' === $brand_mode || 'option_1c' === $brand_mode ) {
 			return;
 		}
 
@@ -147,7 +330,7 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		if ( 'breadcrumb_1b' === $brand_mode ) :
+		if ( 'breadcrumb_1b' === $brand_mode || 'option_1b' === $brand_mode ) :
 			?>
 			<div class="cux-pdp-brand-pill-wrap">
 				<?php if ( ! empty( $brand['url'] ) ) : ?>
@@ -175,8 +358,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 2. Render Clean 1-Line Technical Spec Subtitle below Single Product Title (when Option 2A is selected).
-	 *    Prevents Card Badges and Taglines from stacking and cluttering the area between Title and Price.
+	 * 3. Render Clean 1-Line Technical Spec Subtitle below Single Product Title (when Option 2A is selected).
 	 */
 	public static function render_pdp_spec_subtitle(): void {
 		global $product;
@@ -186,10 +368,9 @@ class CUX_PDP_Renderer {
 
 		$product_id  = (int) $product->get_id();
 		$config      = CUX_Inheritance_Engine::resolve_product_config( $product_id );
-		$header_mode = $config['pdp_header_meta_mode'] ?? 'subtitle_only_2a';
+		$header_mode = (string) ( $config['pdp_header_meta_mode'] ?? 'option_2a' );
 
-		// Option 2B: Show custom card fields strictly on Shop Cards only.
-		if ( 'cards_only_2b' === $header_mode ) {
+		if ( 'cards_only_2b' === $header_mode || 'option_2b' === $header_mode ) {
 			return;
 		}
 
@@ -205,8 +386,8 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 3. Render visual Swatches (Color Circles, Variation Thumbnail Photos, Size Boxes, or Spec Radio Cards)
-	 *    with Selected vs. Deselected Contrast (Option 4A Checkmark vs Option 4B Border + Dot).
+	 * 4. Render Swatch Controls (Variation Image Tile, Custom Term Image, Colour Circle, Text Button Box, or Spec Radio Card)
+	 *    with Cross-Attribute Availability & Active Contrast States.
 	 *
 	 * @param string $html Original WooCommerce <select> HTML.
 	 * @param array  $args Dropdown arguments.
@@ -225,41 +406,23 @@ class CUX_PDP_Renderer {
 		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
 
-		$attr_clean        = strtolower( (string) $attribute );
-		$role              = 'dimensional';
-		$style             = 'size_box';
-		$primary_attr      = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
-		$visual_attrs      = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
-		$visual_swatch_cfg = $config['visual_swatch_mode'] ?? 'hybrid_auto';
-		$active_contrast   = $config['swatch_active_style'] ?? 'checkmark_4a';
+		$resolved_display = self::resolve_attribute_display_mode( $product_id, (string) $attribute, $config, $cache );
+		$role             = $resolved_display['role'];
+		$display_mode     = $resolved_display['display_mode']; // auto_variation_image | term_image | color_circle | text_box | radio_card | dropdown
+		$css_style_bucket = $resolved_display['css_style'];    // variation_image | color_circle | size_box | radio_card
 
-		if ( $attr_clean === $primary_attr || false !== strpos( $attr_clean, 'color' ) || false !== strpos( $attr_clean, 'colour' ) ) {
-			$role  = 'visual_primary';
-			$style = ( 'variation_photo' === $visual_swatch_cfg ) ? 'variation_image' : 'color_circle';
-		} elseif ( in_array( $attr_clean, $visual_attrs, true ) || false !== strpos( $attr_clean, 'groupset' ) || false !== strpos( $attr_clean, 'spec' ) || false !== strpos( $attr_clean, 'wheelset' ) ) {
-			$role  = 'visual_secondary';
-			$style = 'radio_card';
-		}
-
-		// Respect explicit per-attribute override if set in Products > Attributes, unless global Variation Photo mode is forced.
-		if ( 'variation_photo' !== $visual_swatch_cfg && taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
-			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
-			$saved_type = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
-			if ( ! empty( $saved_type ) ) {
-				$style = $saved_type;
-			}
-		}
-
-		if ( 'dropdown' === $style ) {
+		if ( 'dropdown' === $display_mode ) {
 			return $html;
 		}
 
+		$active_contrast = self::normalize_contrast_mode( (string) ( $config['swatch_active_style'] ?? 'option_4a' ) );
 		$size_guide      = CUX_Inheritance_Engine::resolve_size_guide_block( $product_id );
 		$show_size_guide = ( 'dimensional' === $role && ! empty( $size_guide['shortcode'] ) );
 
-		$option_meta = self::build_attribute_option_meta( $product, $attribute, $options, $cache, $visual_swatch_cfg );
+		$option_meta = self::build_attribute_option_meta( $product, (string) $attribute, $options, $cache, $display_mode );
 		$selected    = isset( $args['selected'] ) ? (string) $args['selected'] : '';
 		$oos_mode    = $config['oos_swatch_behavior'] ?? 'clickable_preview';
+		$cross_mode  = $config['cross_attr_oos_mode'] ?? 'smart_switch';
 		$attr_label  = wc_attribute_label( $attribute, $product );
 
 		ob_start();
@@ -268,8 +431,10 @@ class CUX_PDP_Renderer {
 			data-attribute="<?php echo esc_attr( 'attribute_' . sanitize_title( $attribute ) ); ?>"
 			data-attr-raw="<?php echo esc_attr( $attribute ); ?>"
 			data-role="<?php echo esc_attr( $role ); ?>"
-			data-style="<?php echo esc_attr( $style ); ?>"
-			data-oos-mode="<?php echo esc_attr( $oos_mode ); ?>">
+			data-style="<?php echo esc_attr( $css_style_bucket ); ?>"
+			data-display-mode="<?php echo esc_attr( $display_mode ); ?>"
+			data-oos-mode="<?php echo esc_attr( $oos_mode ); ?>"
+			data-cross-oos-mode="<?php echo esc_attr( $cross_mode ); ?>">
 
 			<div class="cux-swatch-header-bar">
 				<div class="cux-swatch-title-group">
@@ -292,7 +457,7 @@ class CUX_PDP_Renderer {
 				<?php endif; ?>
 			</div>
 
-			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?> <?php echo ! empty( $selected ) ? 'has-selection' : ''; ?>" role="radiogroup" aria-label="<?php echo esc_attr( $attr_label ); ?>">
+			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $css_style_bucket ); ?> <?php echo ! empty( $selected ) ? 'has-selection' : ''; ?>" role="radiogroup" aria-label="<?php echo esc_attr( $attr_label ); ?>">
 				<?php
 				foreach ( $options as $option_val ) :
 					$meta = $option_meta[ $option_val ] ?? null;
@@ -308,7 +473,7 @@ class CUX_PDP_Renderer {
 					$item_classes = array( 'cux-swatch-item' );
 					if ( $is_selected ) {
 						$item_classes[] = 'is-selected';
-					} else {
+					} elseif ( '' !== $selected ) {
 						$item_classes[] = 'is-deselected';
 					}
 					if ( ! empty( $meta['is_image_swatch'] ) ) {
@@ -331,11 +496,11 @@ class CUX_PDP_Renderer {
 						<?php echo ( ! $meta['has_stock'] && 'crossed_disabled' === $oos_mode ) ? 'disabled="disabled"' : ''; ?>
 						title="<?php echo esc_attr( ! empty( $meta['tooltip'] ) ? $meta['name'] . ' — ' . $meta['tooltip'] : $meta['name'] ); ?>">
 
-						<?php if ( 'color_circle' === $style || 'variation_image' === $style ) : ?>
+						<?php if ( 'color_circle' === $css_style_bucket || 'variation_image' === $css_style_bucket ) : ?>
 							<span class="cux-color-circle-inner" style="background: <?php echo esc_attr( $meta['bg_css'] ); ?>;"></span>
 							<span class="cux-swatch-check-badge" aria-hidden="true">&#10003;</span>
 							<span class="cux-swatch-bottom-dot" aria-hidden="true"></span>
-						<?php elseif ( 'radio_card' === $style ) : ?>
+						<?php elseif ( 'radio_card' === $css_style_bucket ) : ?>
 							<span class="cux-radio-card-top">
 								<strong class="cux-radio-card-title"><?php echo esc_html( $meta['name'] ); ?></strong>
 								<?php if ( ! empty( $meta['restock_eta'] ) && ! $meta['has_stock'] ) : ?>
@@ -373,7 +538,116 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 4. Wrap WooCommerce's native "Clear" link in a clean block row so it never overlaps the Colour label.
+	 * Resolve whether a specific attribute renders as a Variation Image, Custom Attribute Image, Colour Circle, Text Button, or Spec Radio Card.
+	 *
+	 * Priority Order:
+	 * 1. Per-Product Override (`_cux_product_swatch_mode` in Product data > General) for visual attributes
+	 * 2. Tab 1 Per-Attribute Display Mapper Table (`attribute_display_map[$tax_key]`)
+	 * 3. Per-Attribute Setting (`cux_swatch_type_{$attr_id}` under Products > Attributes)
+	 * 4. Storewide Default Visual Swatch Mode (`visual_swatch_mode` in Tab 1)
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $attribute  Attribute taxonomy or slug.
+	 * @param array  $config     Resolved product configuration.
+	 * @param array  $cache      Precomputed product cache.
+	 * @return array{role: string, display_mode: string, css_style: string}
+	 */
+	private static function resolve_attribute_display_mode( int $product_id, string $attribute, array $config, array $cache ): array {
+		$attr_clean   = strtolower( trim( $attribute ) );
+		$tax_key      = sanitize_key( 0 === strpos( $attr_clean, 'pa_' ) ? $attr_clean : 'pa_' . $attr_clean );
+		$primary_attr = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
+		$visual_attrs = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
+
+		// Determine functional role (visual_primary, visual_secondary, or dimensional).
+		$role = 'dimensional';
+		if ( $attr_clean === $primary_attr || $tax_key === $primary_attr || false !== strpos( $attr_clean, 'color' ) || false !== strpos( $attr_clean, 'colour' ) ) {
+			$role = 'visual_primary';
+		} elseif ( in_array( $attr_clean, $visual_attrs, true ) || in_array( $tax_key, $visual_attrs, true ) || false !== strpos( $attr_clean, 'groupset' ) || false !== strpos( $attr_clean, 'spec' ) || false !== strpos( $attr_clean, 'wheelset' ) ) {
+			$role = 'visual_secondary';
+		}
+
+		$chosen_mode = '';
+
+		// Priority 1: Per-Product Visual Swatch Override (`_cux_product_swatch_mode`).
+		if ( 'visual_primary' === $role ) {
+			$prod_override = (string) get_post_meta( $product_id, '_cux_product_swatch_mode', true );
+			if ( ! empty( $prod_override ) && 'inherit' !== $prod_override ) {
+				$chosen_mode = $prod_override;
+			}
+		}
+
+		// Priority 2: Tab 1 Per-Attribute Display Mapper Table (`attribute_display_map`).
+		if ( empty( $chosen_mode ) ) {
+			$attr_map = isset( $config['attribute_display_map'] ) && is_array( $config['attribute_display_map'] ) ? $config['attribute_display_map'] : array();
+			$mapped   = $attr_map[ $tax_key ] ?? ( $attr_map[ sanitize_key( $attr_clean ) ] ?? '' );
+			if ( ! empty( $mapped ) && 'auto_detect' !== $mapped ) {
+				$chosen_mode = $mapped;
+			}
+		}
+
+		// Priority 3: Per-Attribute setting under Products > Attributes.
+		if ( empty( $chosen_mode ) && taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
+			$saved_type = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
+			if ( ! empty( $saved_type ) ) {
+				$chosen_mode = $saved_type;
+			}
+		}
+
+		// Priority 4: Storewide Default Visual Swatch Mode.
+		if ( empty( $chosen_mode ) ) {
+			if ( 'visual_primary' === $role ) {
+				$global_vis = (string) ( $config['visual_swatch_mode'] ?? 'smart_hybrid' );
+				if ( 'variation_photo' === $global_vis || 'variation_image' === $global_vis ) {
+					$chosen_mode = 'auto_variation_image';
+				} elseif ( 'text_box' === $global_vis ) {
+					$chosen_mode = 'text_box';
+				} elseif ( 'color_circle' === $global_vis ) {
+					$chosen_mode = 'color_circle';
+				} else {
+					$chosen_mode = 'smart_hybrid';
+				}
+			} elseif ( 'visual_secondary' === $role ) {
+				$chosen_mode = 'radio_card';
+			} else {
+				$chosen_mode = 'text_box';
+			}
+		}
+
+		// Map chosen mode to the CSS layout bucket.
+		$css_style = 'size_box';
+		if ( 'auto_variation_image' === $chosen_mode || 'variation_image' === $chosen_mode || 'term_image' === $chosen_mode ) {
+			$css_style = 'variation_image';
+		} elseif ( 'color_circle' === $chosen_mode || 'smart_hybrid' === $chosen_mode || 'hybrid_auto' === $chosen_mode ) {
+			$css_style = 'color_circle';
+		} elseif ( 'radio_card' === $chosen_mode ) {
+			$css_style = 'radio_card';
+		} elseif ( 'dropdown' === $chosen_mode ) {
+			$css_style = 'dropdown';
+		}
+
+		return array(
+			'role'         => $role,
+			'display_mode' => $chosen_mode,
+			'css_style'    => $css_style,
+		);
+	}
+
+	/**
+	 * Normalize contrast option key (`option_4a` / `checkmark_4a` and `option_4b` / `border_dot_4b`).
+	 *
+	 * @param string $raw Raw setting value.
+	 * @return string
+	 */
+	private static function normalize_contrast_mode( string $raw ): string {
+		if ( 'option_4b' === $raw || 'border_dot_4b' === $raw ) {
+			return 'border_dot_4b';
+		}
+		return 'checkmark_4a';
+	}
+
+	/**
+	 * 5. Wrap WooCommerce's native "Clear" link in a clean block row so it never overlaps the Colour label.
 	 *
 	 * @param string $link_html Original reset link HTML.
 	 * @return string
@@ -388,11 +662,11 @@ class CUX_PDP_Renderer {
 	/**
 	 * Build metadata (label, swatch CSS gradient/image, variation photo, stock status, restock ETA) for each option.
 	 *
-	 * @param WC_Product $product           Variable product.
-	 * @param string     $attribute         Attribute name.
-	 * @param array      $options           Option values.
-	 * @param array      $cache             Precomputed product cache.
-	 * @param string     $visual_swatch_cfg Global visual swatch display mode.
+	 * @param WC_Product $product      Variable product.
+	 * @param string     $attribute    Attribute name.
+	 * @param array      $options      Option values.
+	 * @param array      $cache        Precomputed product cache.
+	 * @param string     $display_mode Resolved display mode for this attribute.
 	 * @return array
 	 */
 	private static function build_attribute_option_meta(
@@ -400,18 +674,12 @@ class CUX_PDP_Renderer {
 		string $attribute,
 		array $options,
 		array $cache,
-		string $visual_swatch_cfg = 'hybrid_auto'
+		string $display_mode = 'smart_hybrid'
 	): array {
 		$result      = array();
 		$avail_map   = $cache['availability_matrix'] ?? array();
 		$attr_lookup = strtolower( (string) $attribute );
 		$no_pa       = 0 === strpos( $attr_lookup, 'pa_' ) ? substr( $attr_lookup, 3 ) : $attr_lookup;
-
-		$attr_style = '';
-		if ( taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
-			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
-			$attr_style = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
-		}
 
 		foreach ( $options as $opt_val ) {
 			$slug         = sanitize_title( (string) $opt_val );
@@ -444,11 +712,12 @@ class CUX_PDP_Renderer {
 			$var_thumb_url = '';
 
 			if ( ! empty( $avail_map ) ) {
-				foreach ( $avail_map as $var_data ) {
+				foreach ( $avail_map as $var_id => $var_data ) {
 					$var_attrs = $var_data['attributes'] ?? array();
 					foreach ( $var_attrs as $k => $v ) {
-						$k_low = strtolower( (string) $k );
-						if ( ( $k_low === $attr_lookup || $k_low === $no_pa || $k_low === 'pa_' . $no_pa ) && ( '' === $v || sanitize_title( (string) $v ) === $slug ) ) {
+						$k_low   = strtolower( str_replace( 'attribute_', '', (string) $k ) );
+						$k_no_pa = 0 === strpos( $k_low, 'pa_' ) ? substr( $k_low, 3 ) : $k_low;
+						if ( ( $k_low === $attr_lookup || $k_no_pa === $no_pa ) && ( '' === (string) $v || sanitize_title( (string) $v ) === $slug ) ) {
 							if ( ! empty( $var_data['is_in_stock'] ) ) {
 								$has_stock = true;
 							}
@@ -458,8 +727,11 @@ class CUX_PDP_Renderer {
 							if ( empty( $price_html ) && ! empty( $var_data['price_html'] ) ) {
 								$price_html = (string) $var_data['price_html'];
 							}
-							if ( empty( $var_thumb_url ) && ! empty( $var_data['main_img_id'] ) ) {
-								$var_thumb_url = (string) wp_get_attachment_image_url( (int) $var_data['main_img_id'], 'woocommerce_gallery_thumbnail' );
+							if ( empty( $var_thumb_url ) ) {
+								$img_id = ! empty( $var_data['main_img_id'] ) ? (int) $var_data['main_img_id'] : (int) get_post_meta( (int) $var_id, '_thumbnail_id', true );
+								if ( $img_id > 0 ) {
+									$var_thumb_url = (string) wp_get_attachment_image_url( $img_id, 'woocommerce_gallery_thumbnail' );
+								}
 							}
 						}
 					}
@@ -468,14 +740,17 @@ class CUX_PDP_Renderer {
 				$has_stock = true;
 			}
 
-			// Resolve whether to display an image swatch vs color/gradient swatch based on Dashboard setting.
+			// Decide whether to render an Image vs. Colour based on the chosen display mode.
 			$final_img_url   = '';
 			$is_image_swatch = false;
 
-			if ( 'variation_photo' === $visual_swatch_cfg || 'variation_image' === $attr_style ) {
+			if ( 'auto_variation_image' === $display_mode || 'variation_image' === $display_mode ) {
 				$final_img_url   = ! empty( $var_thumb_url ) ? $var_thumb_url : $term_img_url;
 				$is_image_swatch = ! empty( $final_img_url );
-			} elseif ( 'hybrid_auto' === $visual_swatch_cfg ) {
+			} elseif ( 'term_image' === $display_mode ) {
+				$final_img_url   = ! empty( $term_img_url ) ? $term_img_url : $var_thumb_url;
+				$is_image_swatch = ! empty( $final_img_url );
+			} elseif ( 'smart_hybrid' === $display_mode || 'hybrid_auto' === $display_mode ) {
 				if ( ! empty( $term_img_url ) ) {
 					$final_img_url   = $term_img_url;
 					$is_image_swatch = true;
@@ -565,7 +840,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 5. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
+	 * 6. Inject Cross-Attribute Availability Matrix & Strict Variation Gallery Slides JSON payload before Variations Form.
 	 */
 	public static function render_pdp_json_payload(): void {
 		global $product;
@@ -573,67 +848,99 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$product_id = (int) $product->get_id();
-		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
+		$product_id     = (int) $product->get_id();
+		$config         = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$isolation_mode = self::resolve_gallery_isolation_mode( $product_id );
+		$cross_oos_mode = (string) ( $config['cross_attr_oos_mode'] ?? 'smart_switch' );
+		$cache          = CUX_Cache_Manager::get_product_cache( $product_id );
 
 		if ( empty( $cache ) && class_exists( 'CUX_Stock_Calculator' ) ) {
 			CUX_Stock_Calculator::sync_parent_product( $product_id, 'frontend_init' );
 			$cache = CUX_Cache_Manager::get_product_cache( $product_id );
 		}
 
+		// 1. Build slides_by_hash (Colorway Group galleries).
 		$slides_by_hash = array();
 		if ( ! empty( $cache['visual_galleries'] ) && is_array( $cache['visual_galleries'] ) ) {
 			foreach ( $cache['visual_galleries'] as $hash => $img_ids ) {
-				$slides = array();
-				foreach ( (array) $img_ids as $att_id ) {
-					$att_id = (int) $att_id;
-					if ( $att_id <= 0 ) {
-						continue;
-					}
-					$full_src   = wp_get_attachment_image_src( $att_id, 'full' );
-					$single_img = wp_get_attachment_image(
-						$att_id,
-						'woocommerce_single',
-						false,
-						array(
-							'class' => 'wp-post-image skip-lazy',
-						)
-					);
-					$thumb_img  = wp_get_attachment_image(
-						$att_id,
-						'woocommerce_gallery_thumbnail',
-						false,
-						array(
-							'class' => 'attachment-woocommerce_thumbnail',
-						)
-					);
-
-					if ( $single_img && $full_src ) {
-						$slides[] = array(
-							'id'       => $att_id,
-							'full_url' => $full_src[0],
-							'full_w'   => $full_src[1] ?? 1200,
-							'full_h'   => $full_src[2] ?? 1200,
-							'main_img' => $single_img,
-							'thumb'    => $thumb_img,
-						);
-					}
-				}
+				$slides = self::format_attachment_ids_to_slides( (array) $img_ids );
 				if ( ! empty( $slides ) ) {
 					$slides_by_hash[ $hash ] = $slides;
 				}
 			}
 		}
 
+		// 2. Build slides_by_variation (Strict Selected Variation Only galleries) & normalized availability_matrix.
+		$slides_by_variation = array();
+		$avail_matrix        = $cache['availability_matrix'] ?? array();
+
+		foreach ( $product->get_children() as $var_id ) {
+			$var_id = (int) $var_id;
+			$var    = wc_get_product( $var_id );
+			if ( ! $var || 'publish' !== $var->get_status() ) {
+				continue;
+			}
+
+			$own_main  = (int) get_post_meta( $var_id, '_thumbnail_id', true );
+			$own_extra = class_exists( 'CUX_Stock_Calculator' )
+				? CUX_Stock_Calculator::get_variation_extra_image_ids( $var_id )
+				: array();
+
+			// If this size variation has no direct main image, fallback to its cached main_img_id.
+			if ( $own_main <= 0 && ! empty( $avail_matrix[ $var_id ]['main_img_id'] ) ) {
+				$own_main = (int) $avail_matrix[ $var_id ]['main_img_id'];
+			}
+
+			if ( 'strict_variation' === $isolation_mode ) {
+				$var_img_ids = array_values( array_unique( array_filter( array_merge( array( $own_main ), $own_extra ) ) ) );
+			} else {
+				$var_img_ids = ! empty( $avail_matrix[ $var_id ]['gallery_ids'] )
+					? (array) $avail_matrix[ $var_id ]['gallery_ids']
+					: array_values( array_unique( array_filter( array_merge( array( $own_main ), $own_extra ) ) ) );
+			}
+
+			$var_slides = self::format_attachment_ids_to_slides( $var_img_ids );
+			if ( ! empty( $var_slides ) ) {
+				$slides_by_variation[ $var_id ] = $var_slides;
+			}
+
+			// Ensure normalized attribute slugs exist in availability_matrix for instant JS cross-attribute filtering.
+			$raw_attrs  = $var->get_variation_attributes( false );
+			$norm_attrs = array();
+			foreach ( $raw_attrs as $ak => $av ) {
+				$clean_key                = 'attribute_' . sanitize_title( (string) $ak );
+				$norm_attrs[ $clean_key ] = '' !== (string) $av ? sanitize_title( (string) $av ) : '';
+			}
+
+			if ( ! isset( $avail_matrix[ $var_id ] ) ) {
+				$avail_matrix[ $var_id ] = array(
+					'var_id'        => $var_id,
+					'attributes'    => $raw_attrs,
+					'norm_attrs'    => $norm_attrs,
+					'is_in_stock'   => $var->is_in_stock(),
+					'stock_qty'     => (int) $var->get_stock_quantity(),
+					'is_low_stock'  => false,
+					'pickup_status' => (string) get_post_meta( $var_id, '_cux_pickup_status', true ),
+					'restock_eta'   => (string) get_post_meta( $var_id, '_cux_restock_eta', true ),
+					'main_img_id'   => $own_main,
+				);
+			} else {
+				$avail_matrix[ $var_id ]['norm_attrs'] = $norm_attrs;
+			}
+		}
+
 		$frontend_payload = array(
-			'product_id'          => $product_id,
-			'winner_var_id'       => $cache['winner_var_id'] ?? 0,
-			'winner_visual_hash'  => $cache['winner_visual_hash'] ?? '',
-			'primary_visual_attr' => $cache['primary_visual_attr'] ?? 'pa_color',
-			'visual_attrs'        => $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ),
-			'dimensional_attrs'   => $cache['dimensional_attrs'] ?? array( 'pa_size' ),
-			'slides_by_hash'      => $slides_by_hash,
-			'availability_matrix' => $cache['availability_matrix'] ?? array(),
+			'product_id'             => $product_id,
+			'winner_var_id'          => $cache['winner_var_id'] ?? 0,
+			'winner_visual_hash'     => $cache['winner_visual_hash'] ?? '',
+			'gallery_isolation_mode' => $isolation_mode,
+			'cross_attr_oos_mode'    => $cross_oos_mode,
+			'primary_visual_attr'    => $cache['primary_visual_attr'] ?? 'pa_color',
+			'visual_attrs'           => $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ),
+			'dimensional_attrs'      => $cache['dimensional_attrs'] ?? array( 'pa_size' ),
+			'slides_by_variation'    => $slides_by_variation,
+			'slides_by_hash'         => $slides_by_hash,
+			'availability_matrix'    => $avail_matrix,
 		);
 		?>
 		<script type="application/json" id="cux-pdp-json-data">
@@ -643,8 +950,52 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 6. Render Configurable Delivery Switcher (Option 6A Stacked Rows, Option 6B Segmented Tabs, Option 6C 2-Col Cards)
-	 *    Synced with WooCommerce Shipping Zones, Methods & Shipping Classes.
+	 * Convert an array of attachment IDs into Flatsome Flickity slide objects.
+	 *
+	 * @param array $img_ids Attachment IDs.
+	 * @return array
+	 */
+	private static function format_attachment_ids_to_slides( array $img_ids ): array {
+		$slides = array();
+		foreach ( $img_ids as $att_id ) {
+			$att_id = (int) $att_id;
+			if ( $att_id <= 0 ) {
+				continue;
+			}
+			$full_src   = wp_get_attachment_image_src( $att_id, 'full' );
+			$single_img = wp_get_attachment_image(
+				$att_id,
+				'woocommerce_single',
+				false,
+				array(
+					'class' => 'wp-post-image skip-lazy',
+				)
+			);
+			$thumb_img  = wp_get_attachment_image(
+				$att_id,
+				'woocommerce_gallery_thumbnail',
+				false,
+				array(
+					'class' => 'attachment-woocommerce_thumbnail',
+				)
+			);
+
+			if ( $single_img && $full_src ) {
+				$slides[] = array(
+					'id'       => $att_id,
+					'full_url' => $full_src[0],
+					'full_w'   => $full_src[1] ?? 1200,
+					'full_h'   => $full_src[2] ?? 1200,
+					'main_img' => $single_img,
+					'thumb'    => $thumb_img,
+				);
+			}
+		}
+		return $slides;
+	}
+
+	/**
+	 * 7. Render Configurable Delivery Switcher (Option 6A Stacked Rows, Option 6B Segmented Tabs, Option 6C 2-Col Cards).
 	 */
 	public static function render_delivery_and_low_stock_block(): void {
 		global $product;
@@ -664,7 +1015,14 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$layout_style   = $config['delivery_layout_style'] ?? 'stacked_rows_6a';
+		$raw_layout     = (string) ( $config['delivery_layout_style'] ?? 'option_6a' );
+		$layout_style   = 'stacked_rows_6a';
+		if ( 'tabs_pill_6b' === $raw_layout || 'option_6b' === $raw_layout ) {
+			$layout_style = 'tabs_pill_6b';
+		} elseif ( 'cards_2col_6c' === $raw_layout || 'option_6c' === $raw_layout ) {
+			$layout_style = 'cards_2col_6c';
+		}
+
 		$heading        = ! empty( $config['delivery_heading_label'] ) ? $config['delivery_heading_label'] : __( 'Delivery Method', 'commerce-ux-studio' );
 		$active_card    = $cards[0];
 		$active_rate_id = '';
@@ -690,7 +1048,6 @@ class CUX_PDP_Renderer {
 			<input type="hidden" name="cux_chosen_rate_id" id="cux-chosen-rate-id" value="<?php echo esc_attr( $active_rate_id ); ?>" />
 
 			<?php if ( 'tabs_pill_6b' === $layout_style ) : ?>
-				<!-- OPTION 6B: COMPACT 2-TAB SEGMENTED SWITCHER PILL + LIVE SUMMARY LINE -->
 				<div class="cux-delivery-tabs-pill" role="tablist">
 					<?php foreach ( $cards as $card ) : ?>
 						<button type="button"
@@ -717,7 +1074,6 @@ class CUX_PDP_Renderer {
 				</div>
 
 			<?php elseif ( 'cards_2col_6c' === $layout_style ) : ?>
-				<!-- OPTION 6C: REFINED 2-COLUMN CARDS (FULL-WIDTH TITLE ON TOP + LEAD TIME & PRICE ON BOTTOM) -->
 				<div class="cux-delivery-cards-grid cux-grid-2col-refined">
 					<?php foreach ( $cards as $card ) : ?>
 						<label class="cux-delivery-card <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
@@ -748,7 +1104,6 @@ class CUX_PDP_Renderer {
 				</div>
 
 			<?php else : ?>
-				<!-- OPTION 6A (DEFAULT): FULL-WIDTH STACKED HORIZONTAL RADIO ROWS (NO WRAPPING) -->
 				<div class="cux-delivery-stacked-list">
 					<?php foreach ( $cards as $card ) : ?>
 						<label class="cux-delivery-card cux-delivery-row-item <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
@@ -872,7 +1227,6 @@ class CUX_PDP_Renderer {
 			}
 		}
 
-		// Store-agnostic fallback cards if no WooCommerce Zone methods were found.
 		if ( empty( $cards ) ) {
 			$home_title      = ! empty( $config['home_card_title'] ) ? $config['home_card_title'] : __( 'Standard Delivery', 'commerce-ux-studio' );
 			$home_lead       = $config['default_home_lead'] ?? '4-7 days';
@@ -907,8 +1261,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Match the customer's active WooCommerce Shipping Zone (or fallback to store base country / first configured zone)
-	 * and return all enabled shipping method instances.
+	 * Match the customer's active WooCommerce Shipping Zone (or fallback to store base country / first configured zone).
 	 *
 	 * @param WC_Product $product Product object.
 	 * @return array<string, object> Map of rate_id => WC_Shipping_Method instance.
@@ -1081,7 +1434,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 7A. When a customer adds a product to the cart, save their selected Delivery Method into the WooCommerce Shipping Session.
+	 * 8A. When a customer adds a product to the cart, save their selected Delivery Method into the WooCommerce Shipping Session.
 	 */
 	public static function sync_chosen_delivery_method_to_wc_session(): void {
 		if ( ! function_exists( 'WC' ) || ! isset( WC()->session ) || ! is_object( WC()->session ) ) {
@@ -1095,7 +1448,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 7B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Option is clicked.
+	 * 8B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Option is clicked.
 	 */
 	public static function ajax_set_shipping_method(): void {
 		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
@@ -1109,7 +1462,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 8. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
+	 * 9. Render the In-Page "Complete Your Ride" Cross-Sell Configurator.
 	 */
 	public static function render_complete_your_ride_block(): void {
 		global $product;
@@ -1260,7 +1613,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 9. Render the Centered Size Guide Lightbox Modal in the Footer (Executes Flatsome `[block id="..."]` shortcodes).
+	 * 10. Render the Centered Size Guide Lightbox Modal in the Footer (Executes Flatsome `[block id="..."]` shortcodes).
 	 */
 	public static function render_size_guide_modal(): void {
 		if ( ! function_exists( 'is_product' ) || ! is_product() ) {
@@ -1326,7 +1679,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 10. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
+	 * 11. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
 	 */
 	public static function ajax_quick_add_to_cart(): void {
 		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
