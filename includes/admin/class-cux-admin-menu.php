@@ -1,16 +1,17 @@
 <?php
 /**
- * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.2 Universal WooCommerce Edition).
+ * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.3 Universal Configurable Edition).
  *
  * File Path: includes/admin/class-cux-admin-menu.php
  *
  * Designed for zero-learning-curve client handover across any WooCommerce store:
- * - Tab 1: Look & Feel (Visual Card Style Picker, Hover Image, Out-of-Stock & Mobile Gallery)
+ * - Tab 1: Look & Feel (Card Style Picker, Brand Sync 1A/1B/1C, Header Meta 2A/2B, Swatch Contrast 4A/4B, Image Swatch Mode, Sticky Gallery)
  * - Tab 2: Stock & Gallery Autopilot (Highest-Stock Winner, Auto-Copy Color Galleries & 1-Click Sync)
- * - Tab 3: Delivery & Cross-Sells (Universal WooCommerce Shipping Zones, Methods & Classes Sync)
- * - Collapsible Bottom Drawer: Developer, Odoo ERP, Google Schema & Git Tools
+ * - Tab 3: Delivery & Cross-Sells (Delivery Layout 6A/6B/6C, Universal WC Shipping Zones/Classes Sync & Size Guide Modal)
+ * - Collapsible Bottom Drawer: Developer, Google Schema & Git Tools
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -154,7 +155,7 @@ class CUX_Admin_Menu {
 			update_option( 'cux_global_settings', $current );
 			CUX_Inheritance_Engine::flush_runtime_cache();
 
-			add_settings_error( 'cux_messages', 'cux_saved', __( 'Settings saved! Your store layout, autopilot rules, and shipping cards are updated.', 'commerce-ux-studio' ), 'updated' );
+			add_settings_error( 'cux_messages', 'cux_saved', __( 'Settings saved! Your store layout, swatch modes, autopilot rules, and shipping cards are updated.', 'commerce-ux-studio' ), 'updated' );
 		}
 
 		// 2. Export Configuration JSON (Settings-as-Code for GitHub).
@@ -250,13 +251,13 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Tab 1: Store Look & Feel (Visual Card Picker, Hover Rule, Out-of-Stock Behavior & Mobile Gallery).
+	 * Tab 1: Store Look & Feel (Visual Card Picker, Brand Sync, Header Meta, Swatch Contrast, Image Swatches & Sticky Gallery).
 	 */
 	public static function render_look_and_feel_page(): void {
 		$s      = CUX_Inheritance_Engine::get_global_settings();
 		$preset = $s['catalog_card_preset'] ?? 'specialized_spec';
 
-		self::render_header( 'cux-studio', __( '1. Store Look & Feel — Choose Your Shop Card & Swatch Style', 'commerce-ux-studio' ) );
+		self::render_header( 'cux-studio', __( '1. Store Look & Feel — Configure Shop Cards, Swatches, Brands & Gallery UX', 'commerce-ux-studio' ) );
 		?>
 			<form method="post" class="cux-card" style="margin-bottom: 24px;">
 				<?php wp_nonce_field( 'cux_save_settings_action', 'cux_settings_nonce' ); ?>
@@ -266,30 +267,87 @@ class CUX_Admin_Menu {
 					<label style="border: 2px solid <?php echo 'specialized_spec' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'specialized_spec' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="specialized_spec" <?php checked( $preset, 'specialized_spec' ); ?> />
 						<strong><?php esc_html_e( 'Style A: Technical Spec Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Soft studio grey card, top-left status badge, 50/50 split color swatches, Compare checkbox, and technical spec subtitle below title.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Soft studio grey card, top-left status badge, color/image swatches in a dedicated row, Compare checkbox, and technical spec subtitle.', 'commerce-ux-studio' ); ?></p>
 					</label>
 
 					<label style="border: 2px solid <?php echo 'pinarello_showroom' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'pinarello_showroom' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="pinarello_showroom" <?php checked( $preset, 'pinarello_showroom' ); ?> />
 						<strong><?php esc_html_e( 'Style B: Minimalist Showroom Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Clean studio frame, top-right spec badge, metallic color circles overlaid inside the bottom-left image corner, and uppercase brand tagline.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Clean studio frame, top-right spec badge, color circles overlaid inside a frosted glass pill on the image corner, and uppercase brand tagline.', 'commerce-ux-studio' ); ?></p>
 					</label>
 
 					<label style="border: 2px solid <?php echo 'zara_quick_add' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'zara_quick_add' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="zara_quick_add" <?php checked( $preset, 'zara_quick_add' ); ?> />
 						<strong><?php esc_html_e( 'Style C: Apparel Quick-Add Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Interactive color dots with "+X more" counter and a hover/tap size bar (XS–XXL) for 1-click catalog Add to Cart.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Interactive color dots with "+X more" counter and a hover/tap size bar (S1–S6 / XS–XXL) for 1-click catalog Add to Cart.', 'commerce-ux-studio' ); ?></p>
 					</label>
 				</div>
 
-				<h3><?php esc_html_e( 'Step 2: Swatch, Hover & Mobile Gallery Preferences', 'commerce-ux-studio' ); ?></h3>
+				<h3><?php esc_html_e( 'Step 2: Single Product Header, WooCommerce Brand Sync & Sticky Gallery', 'commerce-ux-studio' ); ?></h3>
 				<table class="form-table">
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Shop Card Hover Image', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Native WooCommerce Brand Sync', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[brand_sync_display]" style="max-width: 100%;">
+								<option value="eyebrow_1a" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'eyebrow_1a' ); ?>><?php esc_html_e( 'Option 1A: Clickable Brand Eyebrow Above Product Title (PDP + Shop Cards + Google Schema)', 'commerce-ux-studio' ); ?></option>
+								<option value="breadcrumb_1b" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'breadcrumb_1b' ); ?>><?php esc_html_e( 'Option 1B: Brand Pill Next to Breadcrumbs (PDP + Shop Cards + Google Schema)', 'commerce-ux-studio' ); ?></option>
+								<option value="cards_schema_1c" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'cards_schema_1c' ); ?>><?php esc_html_e( 'Option 1C: Shop Cards & Google Schema Only (Hide Brand on Single Product Header)', 'commerce-ux-studio' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Automatically syncs assigned Brands from Products > Brands (product_brand taxonomy).', 'commerce-ux-studio' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Product Header Badges & Subtitles', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[pdp_header_meta_mode]" style="max-width: 100%;">
+								<option value="subtitle_only_2a" <?php selected( $s['pdp_header_meta_mode'] ?? 'subtitle_only_2a', 'subtitle_only_2a' ); ?>><?php esc_html_e( 'Option 2A: Badges on Image/Shop Cards + Clean 1-Line Spec Subtitle on Single Product Page', 'commerce-ux-studio' ); ?></option>
+								<option value="cards_only_2b" <?php selected( $s['pdp_header_meta_mode'] ?? 'subtitle_only_2a', 'cards_only_2b' ); ?>><?php esc_html_e( 'Option 2B: Show Custom Badges & Subtitles on Shop Cards Only (100% Clean Single Product Title)', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Desktop Sticky Product Gallery', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[sticky_desktop_gallery]">
+								<option value="yes" <?php selected( $s['sticky_desktop_gallery'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Keep left Product Gallery frozen in view while right summary scrolls)', 'commerce-ux-studio' ); ?></option>
+								<option value="no" <?php selected( $s['sticky_desktop_gallery'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled (Standard page scroll)', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+				</table>
+
+				<h3 style="margin-top: 20px;"><?php esc_html_e( 'Step 3: Variation Swatch Images, Active Contrast & Hover Preferences', 'commerce-ux-studio' ); ?></h3>
+				<table class="form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Color / Visual Swatch Display Mode', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[visual_swatch_mode]" style="max-width: 100%;">
+								<option value="hybrid_auto" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'hybrid_auto' ); ?>><?php esc_html_e( 'Smart Hybrid Mode (Custom Term Image -> Color/Split Circle -> Auto Variation Photo)', 'commerce-ux-studio' ); ?></option>
+								<option value="variation_photo" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'variation_photo' ); ?>><?php esc_html_e( 'Auto Variation Product Photos (Displays each variation’s main product photo in a 48x48px tile)', 'commerce-ux-studio' ); ?></option>
+								<option value="color_circle" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'color_circle' ); ?>><?php esc_html_e( 'Color / Split / Gradient Circles Only (38x38px circular swatches)', 'commerce-ux-studio' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Choose "Auto Variation Product Photos" to automatically use your variation images instead of color circles without uploading extra swatch files!', 'commerce-ux-studio' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Selected vs. Deselected Swatch Contrast', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[swatch_active_style]" style="max-width: 100%;">
+								<option value="checkmark_4a" <?php selected( $s['swatch_active_style'] ?? 'checkmark_4a', 'checkmark_4a' ); ?>><?php esc_html_e( 'Option 4A: Solid Dark Fill + Corner Checkmark Badge (✓) on Selected Swatches (Recommended)', 'commerce-ux-studio' ); ?></option>
+								<option value="border_dot_4b" <?php selected( $s['swatch_active_style'] ?? 'checkmark_4a', 'border_dot_4b' ); ?>><?php esc_html_e( 'Option 4B: Framed Bold 2.5px Border + Bottom Active Indicator Dot (•)', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Shop Card Hover Image ("Back Image - Fade In")', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[catalog_hover_mode]">
-								<option value="angle_2" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'angle_2' ); ?>><?php esc_html_e( 'Option A: Show 2nd Angle of Winning Color', 'commerce-ux-studio' ); ?></option>
-								<option value="second_color" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'second_color' ); ?>><?php esc_html_e( 'Option B: Show Main Photo of 2nd In-Stock Color', 'commerce-ux-studio' ); ?></option>
+								<option value="angle_2" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'angle_2' ); ?>><?php esc_html_e( 'Option A: Show 2nd Angle of Winning Color on Card Hover', 'commerce-ux-studio' ); ?></option>
+								<option value="second_color" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'second_color' ); ?>><?php esc_html_e( 'Option B: Show Main Photo of 2nd In-Stock Color on Card Hover', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
@@ -396,7 +454,7 @@ class CUX_Admin_Menu {
 				<div class="cux-card">
 					<h3><?php esc_html_e( 'One-Click Storewide Sync', 'commerce-ux-studio' ); ?></h3>
 					<p class="cux-muted">
-						<?php esc_html_e( 'Products sync automatically whenever you save a product, receive an order, import a CSV, or sync with Odoo. Click below anytime to refresh all existing variable products at once.', 'commerce-ux-studio' ); ?>
+						<?php esc_html_e( 'Products sync automatically whenever you save a product, receive an order, import a CSV, or update inventory via REST API. Click below anytime to refresh all existing variable products at once.', 'commerce-ux-studio' ); ?>
 					</p>
 					<p style="margin-top: 16px;">
 						<button type="button" id="cux-run-bulk-sync" class="button button-primary button-hero">
@@ -448,16 +506,15 @@ class CUX_Admin_Menu {
 				$shipping_classes = (array) WC()->shipping()->get_shipping_classes();
 			}
 		} catch ( \Throwable $e ) {
-			// Prevent any third-party shipping plugin exception from breaking the admin page.
 			$discovered_zones = array();
 		}
 
-		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box & Complete Your Ride', 'commerce-ux-studio' ) );
+		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box, Size Guide Modal & Complete Your Ride', 'commerce-ux-studio' ) );
 		?>
 			<div class="cux-card" style="margin-bottom: 18px; background: #f0f6fc; border-left: 4px solid #2271b1;">
 				<strong><?php esc_html_e( '100% Universal WooCommerce Shipping Zones, Methods & Classes Sync:', 'commerce-ux-studio' ); ?></strong>
 				<p style="margin: 6px 0 10px; color: #1d2327;">
-					<?php esc_html_e( 'This plugin automatically reads your active Shipping Zones, Shipping Methods, and Product Shipping Classes from WooCommerce > Settings > Shipping. When a shopper selects a delivery or pickup card on the product page, that exact shipping rate is pre-selected in their Cart and Checkout.', 'commerce-ux-studio' ); ?>
+					<?php esc_html_e( 'This plugin automatically reads your active Shipping Zones, Shipping Methods, and Product Shipping Classes from WooCommerce > Settings > Shipping. When a shopper selects a delivery or pickup option on the product page, that exact shipping rate is pre-selected in their Cart and Checkout.', 'commerce-ux-studio' ); ?>
 				</p>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=wc-settings&tab=shipping' ) ); ?>" class="button button-small"><?php esc_html_e( 'Manage WooCommerce Shipping Zones', 'commerce-ux-studio' ); ?></a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=wc-settings&tab=shipping&section=classes' ) ); ?>" class="button button-small" style="margin-left: 6px;"><?php esc_html_e( 'Manage Shipping Classes', 'commerce-ux-studio' ); ?></a>
@@ -465,14 +522,25 @@ class CUX_Admin_Menu {
 
 			<form method="post" class="cux-card">
 				<?php wp_nonce_field( 'cux_save_settings_action', 'cux_settings_nonce' ); ?>
-				<h3><?php esc_html_e( 'General Delivery & Cross-Sell Settings', 'commerce-ux-studio' ); ?></h3>
+				<h3><?php esc_html_e( 'Delivery Switcher Layout, Size Guide & Cross-Sell Settings', 'commerce-ux-studio' ); ?></h3>
 				<table class="form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Show Delivery Method Box on Product Pages', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[enable_delivery_block]">
-								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup cards above Add to Cart)', 'commerce-ux-studio' ); ?></option>
+								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup switcher above Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Delivery & Pickup Switcher Layout Style', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[delivery_layout_style]" style="max-width: 100%;">
+								<option value="stacked_rows_6a" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'stacked_rows_6a' ); ?>><?php esc_html_e( 'Option 6A: Full-Width Stacked Horizontal Radio Rows (No text wrapping — Recommended)', 'commerce-ux-studio' ); ?></option>
+								<option value="tabs_pill_6b" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'tabs_pill_6b' ); ?>><?php esc_html_e( 'Option 6B: Compact 2-Tab Segmented Switcher Pill + Single Live Status Line', 'commerce-ux-studio' ); ?></option>
+								<option value="cards_2col_6c" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'cards_2col_6c' ); ?>><?php esc_html_e( 'Option 6C: Redesigned 2-Column Cards (Full-width title on top + Lead time & price on bottom)', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
@@ -523,12 +591,21 @@ class CUX_Admin_Menu {
 					</tr>
 
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Global Default Size Guide (UX Block)', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<input type="text" name="cux_settings[default_size_guide]" value="<?php echo esc_attr( $s['default_size_guide'] ?? '' ); ?>" class="regular-text" placeholder='e.g., [block id="bike-size-guide"] or slug' />
+							<p class="description"><?php esc_html_e( 'Accepts a Flatsome shortcode ([block id="..."]), UX Block slug, or numeric ID. Opens inside a centered Lightbox Modal when clicking "? Size Guide".', 'commerce-ux-studio' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
 						<th scope="row"><?php esc_html_e( 'Show "Complete Your Ride" Cross-Sell Box', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[enable_complete_ride]">
 								<option value="yes" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Automatically displays native WooCommerce Cross-sells below Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
+							<input type="text" name="cux_settings[cross_sell_heading]" value="<?php echo esc_attr( $s['cross_sell_heading'] ?? 'Complete Your Ride' ); ?>" class="regular-text" style="margin-left: 10px;" placeholder="Complete Your Ride" />
 						</td>
 					</tr>
 				</table>
@@ -582,8 +659,8 @@ class CUX_Admin_Menu {
 										</td>
 										<td>
 											<select name="cux_settings[shipping_method_meta][<?php echo esc_attr( $rate_key ); ?>][enabled]">
-												<option value="yes" <?php selected( $saved_row['enabled'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Show Card', 'commerce-ux-studio' ); ?></option>
-												<option value="no" <?php selected( $saved_row['enabled'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Hide Card', 'commerce-ux-studio' ); ?></option>
+												<option value="yes" <?php selected( $saved_row['enabled'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Show Option', 'commerce-ux-studio' ); ?></option>
+												<option value="no" <?php selected( $saved_row['enabled'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Hide Option', 'commerce-ux-studio' ); ?></option>
 											</select>
 										</td>
 										<td>
@@ -618,7 +695,7 @@ class CUX_Admin_Menu {
 
 				<?php if ( ! empty( $shipping_classes ) ) : ?>
 					<h3 style="margin-top: 24px;"><?php esc_html_e( 'Detected WooCommerce Product Shipping Classes (Auto-Calculated per Product)', 'commerce-ux-studio' ); ?></h3>
-					<p class="cux-muted"><?php esc_html_e( 'When a product is assigned to any of these WooCommerce Shipping Classes, its Delivery Card on the product page automatically displays the exact class cost configured inside your Flat Rate shipping method.', 'commerce-ux-studio' ); ?></p>
+					<p class="cux-muted"><?php esc_html_e( 'When a product is assigned to any of these WooCommerce Shipping Classes, its Delivery Option on the product page automatically displays the exact class cost configured inside your Flat Rate shipping method.', 'commerce-ux-studio' ); ?></p>
 					<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
 						<?php foreach ( $shipping_classes as $sc ) : ?>
 							<?php if ( is_object( $sc ) && isset( $sc->name, $sc->slug ) ) : ?>
@@ -640,7 +717,7 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Collapsible Developer, Odoo ERP, Schema & Git Health Drawer.
+	 * Collapsible Developer, Google Schema & Git Health Drawer.
 	 */
 	private static function render_developer_drawer(): void {
 		$db_health = class_exists( 'CUX_Activator' ) ? CUX_Activator::get_database_health() : array(
@@ -652,7 +729,7 @@ class CUX_Admin_Menu {
 		?>
 		<details class="cux-dev-drawer" style="margin-top: 20px;">
 			<summary style="cursor: pointer; font-weight: 600; padding: 12px 16px; background: #fff; border: 1px solid #dcdcde; border-radius: 8px;">
-				<?php esc_html_e( 'Developer, Odoo ERP, Google Schema & Git Tools (Click to Expand)', 'commerce-ux-studio' ); ?>
+				<?php esc_html_e( 'Developer, Google Schema & Git Tools (Click to Expand)', 'commerce-ux-studio' ); ?>
 			</summary>
 			<div class="cux-grid-2" style="margin-top: 16px;">
 				<div class="cux-card">
