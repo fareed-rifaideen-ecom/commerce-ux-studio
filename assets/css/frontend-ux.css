@@ -1,872 +1,1448 @@
-/*!
- * Commerce UX Studio - Frontend Responsive Stylesheet (v2.3.0)
- * Author: Fareed M. Rifaideen (https://fareed-rifaideen.netlify.app/)
- */
+/
+
+Commerce UX Studio - Frontend Responsive Stylesheet (v2.3.1 Universal Configurable Edition)
+
+File Path: assets/css/frontend-ux.css
+
+Author:    Fareed M. Rifaideen https://fareed-rifaideen.netlify.app/
+*/
+
+:root {
+--cux-primary: #0f172a;
+--cux-primary-hover: #1e293b;
+--cux-accent: #dc2626;
+--cux-success: #16a34a;
+--cux-warning: #d97706;
+--cux-muted: #64748b;
+--cux-border: #cbd5e1;
+--cux-surface-soft: #f4f4f5;
+--cux-radius-sm: 6px;
+--cux-radius-md: 10px;
+--cux-radius-pill: 999px;
+}
 
 /* ==========================================================================
-   1. DESKTOP STICKY PRODUCT GALLERY (FROZEN WHILE RIGHT SUMMARY SCROLLS)
-   ========================================================================== */
-@media (min-width: 1025px) {
-	body.cux-sticky-gallery-enabled .product-main > .row,
-	body.cux-sticky-gallery-enabled .product-container > .row {
-		display: flex !important;
-		flex-wrap: wrap !important;
-		align-items: flex-start !important;
-	}
 
-	body.cux-sticky-gallery-enabled .product-gallery {
-		position: -webkit-sticky !important;
-		position: sticky !important;
-		top: 96px !important;
-		align-self: flex-start !important;
-		z-index: 5;
-	}
+SHOP & CATEGORY ARCHIVE CARDS (STYLE A, STYLE B & STYLE C)
+========================================================================== */
+
+.cux-card-enhanced .box-image {
+position: relative !important;
+overflow: hidden !important;
+}
+
+.cux-card-preset-specialized_spec .box-image {
+background-color: var(--cux-surface-soft);
+border-radius: var(--cux-radius-md);
+}
+
+.cux-card-preset-pinarello_showroom .box-image {
+background-color: #f8fafc;
+border-radius: var(--cux-radius-sm);
+}
+
+.cux-card-overlays {
+position: absolute;
+inset: 0;
+pointer-events: none;
+z-index: 6;
+}
+
+.cux-card-badge-tl {
+position: absolute;
+top: 10px;
+left: 10px;
+background: rgba(255, 255, 255, 0.95);
+color: var(--cux-primary);
+font-size: 11px;
+font-weight: 700;
+letter-spacing: 0.02em;
+padding: 4px 10px;
+border-radius: var(--cux-radius-sm);
+box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+pointer-events: auto;
+line-height: 1.25;
+}
+
+.cux-card-badge-tr {
+position: absolute;
+top: 10px;
+right: 10px;
+color: #334155;
+font-size: 10.5px;
+font-weight: 700;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+background: rgba(255, 255, 255, 0.9);
+padding: 3px 8px;
+border-radius: 4px;
+box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+.cux-card-swatch-compare-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 8px;
+margin: 10px 0 6px;
+min-height: 28px;
+width: 100%;
+clear: both;
+}
+
+.cux-card-swatches {
+display: flex;
+align-items: center;
+flex-wrap: wrap;
+gap: 6px;
+pointer-events: auto;
+}
+
+.cux-card-swatches-overlaid {
+position: absolute;
+bottom: 10px;
+left: 10px;
+background: rgba(255, 255, 255, 0.92);
+backdrop-filter: blur(6px);
+padding: 5px 8px;
+border-radius: var(--cux-radius-pill);
+box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+z-index: 7;
+}
+
+button.cux-card-swatch-dot {
+width: 24px !important;
+height: 24px !important;
+min-width: 24px !important;
+min-height: 24px !important;
+padding: 2px !important;
+border-radius: 50% !important;
+border: 1.5px solid #cbd5e1 !important;
+background: #ffffff !important;
+cursor: pointer;
+display: inline-flex !important;
+align-items: center;
+justify-content: center;
+transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+margin: 0 !important;
+box-shadow: none !important;
+}
+
+button.cux-card-swatch-dot.is-photo-swatch {
+width: 30px !important;
+height: 30px !important;
+min-width: 30px !important;
+min-height: 30px !important;
+border-radius: 6px !important;
+}
+
+button.cux-card-swatch-dot.is-photo-swatch .cux-card-swatch-inner {
+border-radius: 4px;
+}
+
+button.cux-card-swatch-dot:hover {
+transform: scale(1.12);
+border-color: #64748b !important;
+}
+
+button.cux-card-swatch-dot.is-active {
+border-color: var(--cux-primary) !important;
+box-shadow: 0 0 0 1px var(--cux-primary) !important;
+}
+
+.cux-card-swatch-inner {
+width: 100%;
+height: 100%;
+border-radius: 50%;
+box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+display: block;
+background-size: cover !important;
+background-position: center !important;
+}
+
+.cux-card-swatch-more {
+font-size: 11px;
+font-weight: 700;
+color: var(--cux-muted);
+margin-left: 2px;
+}
+
+.cux-card-compare-label {
+display: inline-flex;
+align-items: center;
+gap: 5px;
+font-size: 11.5px;
+font-weight: 600;
+color: #475569;
+cursor: pointer;
+margin: 0;
+user-select: none;
+}
+
+.cux-card-compare-label input[type="checkbox"] {
+margin: 0;
+width: 14px;
+height: 14px;
+cursor: pointer;
+}
+
+.cux-card-brand-eyebrow {
+font-size: 10.5px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+color: #64748b;
+margin: 2px 0;
+line-height: 1.2;
+}
+
+.cux-card-footer-meta {
+width: 100%;
+clear: both;
+margin-top: 4px;
+}
+
+.cux-card-spec-subtitle {
+font-size: 12.5px;
+color: var(--cux-muted);
+margin: 2px 0 4px;
+line-height: 1.35;
+}
+
+.cux-card-preset-pinarello_showroom .product-title a {
+text-transform: uppercase;
+letter-spacing: 0.03em;
+font-weight: 700;
+}
+
+.cux-card-tagline {
+font-size: 11px;
+font-weight: 600;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+color: var(--cux-muted);
+margin: 2px 0 4px;
+}
+
+.cux-card-financing-note {
+font-size: 11.5px;
+color: var(--cux-muted);
+margin-top: 2px;
+}
+
+/* Style C: Hover Quick-Add Size Bar */
+.cux-zara-quick-add-bar {
+position: absolute;
+left: 8px;
+right: 8px;
+bottom: 8px;
+background: rgba(255, 255, 255, 0.96);
+backdrop-filter: blur(6px);
+padding: 8px 10px;
+border-radius: var(--cux-radius-sm);
+box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+pointer-events: auto;
+opacity: 0;
+transform: translateY(6px);
+transition: opacity 0.2s ease, transform 0.2s ease;
+text-align: center;
+z-index: 8;
+}
+
+.box-image:hover .cux-zara-quick-add-bar,
+.cux-zara-quick-add-bar:focus-within {
+opacity: 1;
+transform: translateY(0);
+}
+
+.cux-zara-quick-title {
+display: block;
+font-size: 10px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+color: var(--cux-muted);
+margin-bottom: 5px;
+}
+
+.cux-zara-size-list {
+display: flex;
+flex-wrap: wrap;
+justify-content: center;
+gap: 4px;
+}
+
+button.cux-zara-size-pill {
+background: #ffffff !important;
+border: 1px solid #cbd5e1 !important;
+border-radius: 4px !important;
+padding: 3px 8px !important;
+font-size: 11px !important;
+font-weight: 700 !important;
+color: var(--cux-primary) !important;
+cursor: pointer;
+margin: 0 !important;
+min-height: 26px !important;
+line-height: 1.2 !important;
+transition: all 0.15s ease;
+box-shadow: none !important;
+}
+
+button.cux-zara-size-pill:hover {
+background: var(--cux-primary) !important;
+color: #ffffff !important;
+border-color: var(--cux-primary) !important;
+}
+
+/* ==========================================================================
+2. DESKTOP STICKY PRODUCT GALLERY & SINGLE PRODUCT HEADER (BRAND & SUBTITLE)
+========================================================================== */
+
+@media (min-width: 1025px) {
+body.cux-sticky-gallery-enabled .product-main > .row,
+body.cux-sticky-gallery-enabled .product-container > .row,
+body.cux-sticky-gallery-enabled .custom-product-page .row {
+display: flex;
+flex-wrap: wrap;
+align-items: flex-start;
+}
+
+body.cux-sticky-gallery-enabled .product-gallery {
+	position: -webkit-sticky !important;
+	position: sticky !important;
+	top: 96px !important;
+	align-self: flex-start !important;
+	z-index: 10;
+}
+
+
 }
 
 .product-thumbnails.cux-single-image-hidden {
-	display: none !important;
+display: none !important;
 }
 
-/* ==========================================================================
-   2. SINGLE PRODUCT BRAND EYEBROW, PILL & SPEC SUBTITLE
-   ========================================================================== */
+/* Option 1A: Clickable Brand Eyebrow Above Title */
 .cux-pdp-brand-eyebrow {
-	margin-bottom: 6px;
+margin: 0 0 4px;
 }
 
-.cux-pdp-brand-eyebrow a,
-.cux-pdp-brand-eyebrow span {
-	font-size: 12px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	color: #475569;
-	text-decoration: none;
+.cux-pdp-brand-link {
+display: inline-block;
+font-size: 12px;
+font-weight: 800;
+text-transform: uppercase;
+letter-spacing: 0.1em;
+color: #475569;
+text-decoration: none;
+transition: color 0.15s ease;
 }
 
-.cux-pdp-brand-pill-row {
-	margin-bottom: 8px;
+a.cux-pdp-brand-link:hover {
+color: var(--cux-primary);
+text-decoration: underline;
+}
+
+/* Option 1B: Brand Pill Next to Breadcrumbs */
+.cux-pdp-brand-pill-wrap {
+margin: 0 0 8px;
 }
 
 .cux-pdp-brand-pill {
-	display: inline-block;
-	padding: 3px 10px;
-	border-radius: 999px;
-	background: #f1f5f9;
-	border: 1px solid #cbd5e1;
-	font-size: 11px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: #0f172a;
-	text-decoration: none;
+display: inline-flex;
+align-items: center;
+background: #f1f5f9;
+border: 1px solid #cbd5e1;
+color: var(--cux-primary);
+font-size: 11px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+padding: 3px 10px;
+border-radius: var(--cux-radius-pill);
+text-decoration: none;
+}
+
+/* Option 2A: Clean 1-Line Spec Subtitle on Single Product Page */
+.cux-pdp-header-meta {
+margin: -2px 0 12px;
 }
 
 .cux-pdp-spec-subtitle {
-	font-size: 14px;
-	font-weight: 500;
-	color: #475569;
-	margin: -4px 0 12px;
+font-size: 14px;
+color: #475569;
+font-weight: 500;
+line-height: 1.4;
 }
 
 /* ==========================================================================
-   3. FULL-WIDTH VARIATION ROWS & SWATCHES (IMAGE / COLOUR / TEXT)
-   ========================================================================== */
-.single-product form.variations_form table.variations,
-.single-product form.variations_form table.variations tbody,
-.single-product form.variations_form table.variations tr,
-.single-product form.variations_form table.variations td {
-	display: block !important;
-	width: 100% !important;
-	padding: 0 !important;
-	border: 0 !important;
+3. SINGLE PRODUCT VARIATION SWATCHES (IMAGE / COLOUR / TEXT + AVAILABILITY)
+========================================================================== */
+
+form.variations_form table.variations {
+width: 100% !important;
+border-collapse: collapse !important;
+margin: 14px 0 8px !important;
+border: none !important;
 }
 
-.single-product form.variations_form table.variations th.label {
-	display: none !important;
+form.variations_form table.variations tbody,
+form.variations_form table.variations tr {
+display: block !important;
+width: 100% !important;
+border: none !important;
 }
 
-.single-product form.variations_form a.reset_variations {
-	display: none !important;
+form.variations_form table.variations tr {
+margin-bottom: 16px !important;
+padding: 0 !important;
 }
 
-.cux-attr-block {
-	width: 100%;
-	margin-bottom: 18px;
+form.variations_form table.variations th.label,
+form.variations_form table.variations td.label {
+display: none !important;
 }
 
-.cux-attr-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
-	margin-bottom: 10px;
-	width: 100%;
+form.variations_form table.variations td.value {
+display: block !important;
+width: 100% !important;
+padding: 0 !important;
+border: none !important;
+position: relative;
 }
 
-.cux-attr-title-wrap {
-	font-size: 13px;
-	line-height: 1.4;
-	color: #0f172a;
+/* Clean Reset / Clear Link Row (Never overlaps Colour label) */
+.cux-reset-variations-wrap {
+display: block;
+width: 100%;
+clear: both;
+text-align: right;
+margin-top: 4px;
 }
 
-.cux-attr-name {
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	font-weight: 700;
-	color: #0f172a;
+form.variations_form .reset_variations {
+position: static !important;
+font-size: 11px !important;
+font-weight: 600 !important;
+text-transform: uppercase !important;
+letter-spacing: 0.05em !important;
+color: #64748b !important;
+text-decoration: underline !important;
+margin: 4px 0 0 !important;
+display: inline-block !important;
+}
+
+.cux-swatch-control-wrap {
+width: 100%;
+margin-bottom: 4px;
+}
+
+.cux-swatch-header-bar {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 8px;
+margin-bottom: 8px;
+}
+
+.cux-swatch-title-group {
+display: flex;
+align-items: baseline;
+flex-wrap: wrap;
+gap: 6px;
+}
+
+.cux-attr-name-label {
+font-size: 12px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+color: #475569;
 }
 
 .cux-selected-term-label {
-	margin-left: 6px;
-	font-weight: 600;
-	color: #334155;
+font-size: 13.5px;
+font-weight: 700;
+color: var(--cux-primary);
 }
 
-.cux-size-guide-trigger,
-.cux-inline-reset-btn {
-	background: transparent !important;
-	border: 0 !important;
-	padding: 2px 6px !important;
-	margin: 0 !important;
-	font-size: 12px !important;
-	font-weight: 600 !important;
-	color: #0f172a !important;
-	text-decoration: underline !important;
-	cursor: pointer;
-	min-height: 0 !important;
-	line-height: 1.2 !important;
+button.cux-size-guide-trigger {
+background: transparent !important;
+border: none !important;
+padding: 0 !important;
+margin: 0 !important;
+color: var(--cux-primary) !important;
+font-size: 12.5px !important;
+font-weight: 600 !important;
+text-decoration: underline !important;
+cursor: pointer;
+display: inline-flex !important;
+align-items: center;
+gap: 4px;
+min-height: auto !important;
+line-height: 1.3 !important;
+box-shadow: none !important;
+text-transform: none !important;
 }
 
-.cux-sg-icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 16px;
-	height: 16px;
-	border-radius: 50%;
-	background: #0f172a;
-	color: #ffffff;
-	font-size: 10px;
-	font-weight: 700;
-	margin-right: 4px;
-	text-decoration: none;
+button.cux-size-guide-trigger .dashicons {
+font-size: 16px;
+width: 16px;
+height: 16px;
 }
 
-.cux-swatch-group {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	width: 100%;
+.cux-swatch-items {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+align-items: center;
 }
 
-/* Base Swatch Reset */
-.cux-swatch-item {
-	position: relative;
-	margin: 0 !important;
-	cursor: pointer;
-	transition: all 0.16s ease;
-	box-sizing: border-box;
-}
-
-/* Mode 1: Text / Size Button Box */
-.cux-swatch-box {
-	min-width: 50px;
-	min-height: 42px;
-	padding: 8px 16px !important;
-	border-radius: 6px !important;
-	border: 1.5px solid #cbd5e1 !important;
-	background-color: #ffffff !important;
-	color: #0f172a !important;
-	font-size: 13px !important;
-	font-weight: 700 !important;
-	line-height: 1.2 !important;
-	text-transform: none !important;
-	letter-spacing: 0 !important;
-	display: inline-flex !important;
-	align-items: center;
-	justify-content: center;
-	gap: 5px;
-}
-
-.cux-swatch-box .cux-box-check-inline {
-	display: none;
-	font-size: 11px;
-}
-
-/* Mode 2: Colour / Gradient Circle */
-.cux-swatch-circle {
-	width: 40px !important;
-	height: 40px !important;
-	min-width: 40px !important;
-	min-height: 40px !important;
-	padding: 0 !important;
-	border-radius: 999px !important;
-	border: 2px solid #cbd5e1 !important;
-}
-
-/* Mode 3: Variation / Term Image Tile (52x52px) */
-.cux-swatch-image-tile {
-	width: 54px !important;
-	height: 54px !important;
-	min-width: 54px !important;
-	min-height: 54px !important;
-	padding: 3px !important;
-	border-radius: 8px !important;
-	border: 1.5px solid #cbd5e1 !important;
-	background: #ffffff !important;
-	overflow: visible !important;
-}
-
-.cux-swatch-image-tile img {
-	width: 100%;
-	height: 100%;
-	object-fit: contain;
-	border-radius: 5px;
-	display: block;
-}
-
-/* Selected vs Deselected Contrast (Option 4A & Option 4B) */
-.cux-attr-block.has-selection .cux-swatch-item.is-deselected {
-	opacity: 0.72;
-}
-
+/* Checkmark Badge & Bottom Dot Indicators (Hidden on unselected items) */
 .cux-swatch-check-badge {
-	display: none;
-	position: absolute;
-	top: -5px;
-	right: -5px;
-	width: 18px;
-	height: 18px;
-	border-radius: 999px;
-	background: #0f172a;
-	color: #ffffff;
-	border: 2px solid #ffffff;
-	font-size: 10px;
-	font-weight: 700;
-	line-height: 14px;
-	text-align: center;
-	z-index: 3;
+display: none;
+position: absolute;
+top: -5px;
+right: -5px;
+width: 18px;
+height: 18px;
+border-radius: 50%;
+background: var(--cux-primary);
+color: #ffffff;
+border: 2px solid #ffffff;
+font-size: 10px;
+font-weight: 900;
+line-height: 14px;
+text-align: center;
+box-shadow: 0 2px 4px rgba(15, 23, 42, 0.25);
+pointer-events: none;
+z-index: 4;
+}
+
+.cux-size-check-inline {
+display: none;
+font-size: 11px;
+font-weight: 900;
+margin-right: 5px;
 }
 
 .cux-swatch-bottom-dot {
-	display: none;
-	position: absolute;
-	bottom: -8px;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 6px;
-	height: 6px;
-	border-radius: 999px;
-	background: #0f172a;
+display: none;
+position: absolute;
+bottom: -8px;
+left: 50%;
+transform: translateX(-50%);
+width: 6px;
+height: 6px;
+border-radius: 50%;
+background: var(--cux-primary);
+pointer-events: none;
 }
 
-/* Option 4A Active State (Default): Solid Fill on Text Boxes + Corner Checkmark Badge */
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-box.is-selected {
-	background-color: #0f172a !important;
-	color: #ffffff !important;
-	border-color: #0f172a !important;
-	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+/* Swatch Type 1A: Colour / Gradient Circles (40x40px) */
+.cux-swatch-style-color_circle button.cux-swatch-item {
+width: 40px !important;
+height: 40px !important;
+min-width: 40px !important;
+min-height: 40px !important;
+padding: 3px !important;
+border-radius: 50% !important;
+border: 2px solid #cbd5e1 !important;
+background: #ffffff !important;
+cursor: pointer;
+position: relative;
+margin: 0 !important;
+transition: all 0.15s ease;
+box-shadow: none !important;
+display: inline-flex !important;
+align-items: center;
+justify-content: center;
+overflow: visible !important;
 }
 
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-box.is-selected .cux-box-check-inline {
-	display: inline;
+/* Swatch Type 1B: Variation Image / Custom Term Image Tiles (52x52px Rounded Square) */
+.cux-swatch-style-variation_image button.cux-swatch-item,
+.cux-swatch-style-color_circle button.cux-swatch-item.is-image-tile {
+width: 52px !important;
+height: 52px !important;
+min-width: 52px !important;
+min-height: 52px !important;
+padding: 3px !important;
+border-radius: 8px !important;
+border: 2px solid #cbd5e1 !important;
+background: #ffffff !important;
+cursor: pointer;
+position: relative;
+margin: 0 !important;
+transition: all 0.15s ease;
+box-shadow: none !important;
+display: inline-flex !important;
+align-items: center;
+justify-content: center;
+overflow: visible !important;
 }
 
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-circle.is-selected,
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-image-tile.is-selected {
-	border-color: #0f172a !important;
-	box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #0f172a !important;
-	opacity: 1 !important;
+.cux-swatch-style-variation_image button.cux-swatch-item .cux-color-circle-inner,
+.cux-swatch-style-color_circle button.cux-swatch-item.is-image-tile .cux-color-circle-inner {
+border-radius: 5px;
 }
 
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-circle.is-selected .cux-swatch-check-badge,
-body:not(.cux-swatch-contrast-option_4b) .cux-swatch-image-tile.is-selected .cux-swatch-check-badge {
-	display: block;
+.cux-color-circle-inner {
+display: block;
+width: 100%;
+height: 100%;
+border-radius: 50%;
+box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+background-size: cover !important;
+background-position: center !important;
 }
 
-/* Option 4B Active State: Bold 2.5px Border + Bottom Indicator Dot */
-body.cux-swatch-contrast-option_4b .cux-swatch-item.is-selected {
-	border: 2.5px solid #0f172a !important;
-	background-color: #ffffff !important;
-	color: #0f172a !important;
-	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12) !important;
-	opacity: 1 !important;
+/* Unselected vs Selected Visual Differentiation on Colour & Image Swatches */
+.cux-swatch-items.has-selection button.cux-swatch-item.is-deselected {
+opacity: 0.72;
 }
 
-body.cux-swatch-contrast-option_4b .cux-swatch-item.is-selected .cux-swatch-bottom-dot {
-	display: block;
+.cux-swatch-items.has-selection button.cux-swatch-item.is-deselected:hover {
+opacity: 1;
+transform: translateY(-1px);
+border-color: #64748b !important;
 }
 
-/* Cross-Attribute Unavailable / Out-of-Stock State (Diagonal Strike-Through) */
-.cux-swatch-item.is-oos-in-combo {
-	opacity: 0.35 !important;
-	border-style: dashed !important;
-	overflow: hidden;
+.cux-swatch-style-color_circle button.cux-swatch-item.is-selected,
+.cux-swatch-style-variation_image button.cux-swatch-item.is-selected {
+opacity: 1 !important;
+border-color: var(--cux-primary) !important;
+box-shadow: 0 0 0 1.5px var(--cux-primary) !important;
 }
 
-.cux-swatch-item.is-oos-in-combo::after {
-	content: "";
-	position: absolute;
-	top: 50%;
-	left: -15%;
-	width: 130%;
-	height: 2px;
-	background: #dc2626;
-	transform: rotate(-35deg);
-	pointer-events: none;
-	z-index: 4;
+/* Swatch Type 2: Text Button / Size Pill Box */
+.cux-swatch-style-size_box button.cux-swatch-item {
+min-width: 58px !important;
+min-height: 42px !important;
+padding: 8px 16px !important;
+border-radius: var(--cux-radius-sm) !important;
+border: 1.5px solid #cbd5e1 !important;
+background-color: #ffffff !important;
+color: #0f172a !important;
+font-size: 13.5px !important;
+font-weight: 700 !important;
+line-height: 1.2 !important;
+cursor: pointer;
+display: inline-flex !important;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+margin: 0 !important;
+transition: all 0.15s ease;
+position: relative;
+box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+text-transform: none !important;
+overflow: visible !important;
 }
 
-/* ==========================================================================
-   4. DELIVERY & PICKUP SWITCHER LAYOUTS (OPTIONS 6A, 6B, 6C)
-   ========================================================================== */
-.cux-delivery-wrapper {
-	width: 100%;
-	margin: 18px 0 14px;
-	padding: 14px;
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	background: #f8fafc;
+.cux-size-box-inner {
+display: inline-flex;
+align-items: center;
+justify-content: center;
 }
 
-.cux-delivery-heading {
-	font-size: 12px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	color: #0f172a;
-	margin-bottom: 10px;
+.cux-swatch-style-size_box button.cux-swatch-item .cux-size-box-text {
+color: #0f172a !important;
+font-weight: 700 !important;
+font-size: 13.5px !important;
 }
 
-/* Option 6A: Full-Width Stacked Horizontal Radio Rows */
-.cux-delivery-rows-stack {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
+.cux-swatch-style-size_box button.cux-swatch-item:hover {
+border-color: #0f172a !important;
+background-color: #f8fafc !important;
 }
 
-.cux-delivery-row-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 11px 14px;
-	background: #ffffff;
-	border: 1.5px solid #cbd5e1;
-	border-radius: 8px;
-	cursor: pointer;
-	transition: all 0.15s ease;
+/* Contrast Mode 4A: Solid Dark Fill + Checkmark Badge (✓) */
+.cux-contrast-checkmark_4a button.cux-swatch-item.is-selected .cux-swatch-check-badge {
+display: block;
 }
 
-.cux-delivery-row-item.is-selected {
-	border-color: #0f172a;
-	box-shadow: 0 0 0 1px #0f172a;
+.cux-contrast-checkmark_4a .cux-swatch-style-size_box button.cux-swatch-item.is-selected {
+background-color: #0f172a !important;
+color: #ffffff !important;
+border-color: #0f172a !important;
+box-shadow: 0 3px 8px rgba(15, 23, 42, 0.2) !important;
 }
 
-.cux-row-left {
-	display: flex;
-	align-items: center;
-	gap: 10px;
+.cux-contrast-checkmark_4a .cux-swatch-style-size_box button.cux-swatch-item.is-selected .cux-size-box-text,
+.cux-contrast-checkmark_4a .cux-swatch-style-size_box button.cux-swatch-item.is-selected .cux-size-check-inline {
+color: #ffffff !important;
+display: inline-block;
 }
 
-.cux-radio-circle {
-	width: 18px;
-	height: 18px;
-	min-width: 18px;
-	border-radius: 50%;
-	border: 2px solid #94a3b8;
-	position: relative;
+/* Contrast Mode 4B: Framed Bold 2.5px Border + Bottom Active Indicator Dot (•) */
+.cux-contrast-border_dot_4b .cux-swatch-items {
+margin-bottom: 8px;
 }
 
-.cux-delivery-row-item.is-selected .cux-radio-circle {
-	border-color: #0f172a;
+.cux-contrast-border_dot_4b button.cux-swatch-item.is-selected {
+border-width: 2.5px !important;
+border-color: #0f172a !important;
+background-color: #f8fafc !important;
 }
 
-.cux-delivery-row-item.is-selected .cux-radio-circle::after {
-	content: "";
-	position: absolute;
-	top: 3px;
-	left: 3px;
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: #0f172a;
+.cux-contrast-border_dot_4b button.cux-swatch-item.is-selected .cux-swatch-bottom-dot {
+display: block;
 }
 
-.cux-row-title {
-	font-size: 13.5px;
-	font-weight: 700;
-	color: #0f172a;
-	line-height: 1.3;
+/* Swatch Type 3: Rich Spec Radio Cards */
+.cux-swatch-style-radio_card {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+gap: 10px;
+width: 100%;
 }
 
-.cux-row-subtitle {
-	font-size: 11.5px;
-	color: #64748b;
-	margin-top: 2px;
+.cux-swatch-style-radio_card button.cux-swatch-item {
+width: 100% !important;
+text-align: left !important;
+padding: 12px 14px !important;
+border-radius: var(--cux-radius-md) !important;
+border: 1.5px solid #cbd5e1 !important;
+background: #ffffff !important;
+color: #0f172a !important;
+cursor: pointer;
+display: flex !important;
+flex-direction: column;
+gap: 4px;
+margin: 0 !important;
+position: relative;
+transition: all 0.15s ease;
+box-shadow: none !important;
+text-transform: none !important;
+overflow: visible !important;
 }
 
-.cux-row-right {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	flex-shrink: 0;
+.cux-swatch-style-radio_card button.cux-swatch-item.is-selected {
+border-color: #0f172a !important;
+box-shadow: 0 0 0 1px #0f172a !important;
+background: #f8fafc !important;
+}
+
+.cux-radio-card-top {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 6px;
+width: 100%;
+}
+
+.cux-radio-card-title {
+font-size: 13.5px;
+color: #0f172a;
+}
+
+.cux-stock-pill,
+.cux-eta-pill,
+.cux-oos-pill {
+font-size: 10.5px;
+font-weight: 600;
+padding: 2px 7px;
+border-radius: 999px;
+}
+
+.cux-stock-pill {
+background: #dcfce7;
+color: #15803d;
 }
 
 .cux-eta-pill {
-	background: #f1f5f9;
-	color: #334155;
-	padding: 3px 8px;
-	border-radius: 999px;
-	font-size: 11px;
-	font-weight: 600;
-	white-space: nowrap;
+background: #fef3c7;
+color: #b45309;
 }
 
-.cux-row-price,
-.cux-rate-price {
-	font-size: 13px;
-	font-weight: 700;
-	color: #0f172a;
-	white-space: nowrap;
+.cux-oos-pill {
+background: #f1f5f9;
+color: #64748b;
 }
 
-/* Option 6B: Segmented 2-Tab Pill Switcher */
+/* Cross-Attribute Unavailable (.is-oos-in-combo) & Out-of-Stock (.is-out-of-stock) States */
+button.cux-swatch-item.is-out-of-stock,
+button.cux-swatch-item.is-oos-in-combo {
+opacity: 0.36 !important;
+border-style: dashed !important;
+}
+
+button.cux-swatch-item.is-out-of-stock::after,
+button.cux-swatch-item.is-oos-in-combo::after {
+content: "";
+position: absolute;
+top: 50%;
+left: 8%;
+right: 8%;
+height: 2px;
+background: #dc2626;
+transform: rotate(-28deg);
+pointer-events: none;
+z-index: 5;
+}
+
+.cux-swatch-control-wrap[data-cross-oos-mode="smart_switch"] button.cux-swatch-item.is-oos-in-combo:hover {
+opacity: 0.75 !important;
+border-color: #64748b !important;
+}
+
+button.cux-swatch-item.is-disabled,
+button.cux-swatch-item.is-cross-locked {
+cursor: not-allowed !important;
+}
+
+/* ==========================================================================
+4. DELIVERY & PICKUP SWITCHER LAYOUTS (OPTION 6A, OPTION 6B & OPTION 6C)
+========================================================================== */
+
+.cux-fulfilment-wrapper {
+margin: 14px 0 16px;
+padding: 14px;
+background: #f8fafc;
+border: 1px solid #e2e8f0;
+border-radius: 10px;
+}
+
+.cux-fulfilment-header {
+font-size: 11.5px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+margin-bottom: 10px;
+color: #475569;
+}
+
+.cux-delivery-card input[type="radio"] {
+position: absolute;
+opacity: 0;
+pointer-events: none;
+}
+
+.cux-radio-dot-ui {
+width: 18px;
+height: 18px;
+border-radius: 50%;
+border: 2px solid #94a3b8;
+background: #ffffff;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+flex-shrink: 0;
+transition: all 0.15s ease;
+}
+
+.cux-delivery-card.is-active .cux-radio-dot-ui {
+border-color: var(--cux-primary);
+background: var(--cux-primary);
+box-shadow: inset 0 0 0 3px #ffffff;
+}
+
+.cux-delivery-stacked-list {
+display: flex;
+flex-direction: column;
+gap: 8px;
+}
+
+.cux-delivery-row-item {
+position: relative;
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 12px;
+padding: 11px 14px;
+background: #ffffff;
+border: 1.5px solid #cbd5e1;
+border-radius: 8px;
+cursor: pointer;
+margin: 0;
+transition: all 0.15s ease;
+}
+
+.cux-delivery-row-item:hover {
+border-color: #64748b;
+}
+
+.cux-delivery-row-item.is-active {
+border-color: var(--cux-primary);
+box-shadow: 0 0 0 1px var(--cux-primary);
+background: #ffffff;
+}
+
+.cux-row-left {
+display: flex;
+align-items: center;
+gap: 10px;
+min-width: 0;
+flex: 1;
+}
+
+.cux-row-titles {
+display: flex;
+flex-direction: column;
+gap: 2px;
+min-width: 0;
+}
+
+.cux-delivery-title {
+font-size: 13.5px;
+font-weight: 700;
+color: var(--cux-primary);
+line-height: 1.25;
+}
+
+.cux-row-sub {
+display: flex;
+align-items: center;
+gap: 6px;
+font-size: 12px;
+color: #475569;
+line-height: 1.3;
+}
+
+.cux-delivery-lead {
+font-size: 11px;
+font-weight: 700;
+color: #1e293b;
+background: #f1f5f9;
+border: 1px solid #e2e8f0;
+padding: 3px 9px;
+border-radius: 999px;
+white-space: nowrap;
+flex-shrink: 0;
+}
+
 .cux-delivery-tabs-pill {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-	gap: 6px;
-	background: #e2e8f0;
-	padding: 4px;
-	border-radius: 8px;
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+gap: 4px;
+background: #e2e8f0;
+padding: 4px;
+border-radius: 8px;
 }
 
-.cux-delivery-tab-btn {
-	margin: 0 !important;
-	padding: 8px 12px !important;
-	border-radius: 6px !important;
-	border: 0 !important;
-	background: transparent !important;
-	color: #475569 !important;
-	font-size: 12.5px !important;
-	font-weight: 700 !important;
-	text-transform: none !important;
-	line-height: 1.3 !important;
-	min-height: 36px !important;
+button.cux-delivery-tab-btn {
+background: transparent !important;
+border: none !important;
+border-radius: 6px !important;
+padding: 8px 10px !important;
+margin: 0 !important;
+min-height: 38px !important;
+display: flex !important;
+align-items: center;
+justify-content: center;
+gap: 6px;
+color: #475569 !important;
+font-size: 12.5px !important;
+font-weight: 700 !important;
+cursor: pointer;
+box-shadow: none !important;
+text-transform: none !important;
+line-height: 1.2 !important;
 }
 
-.cux-delivery-tab-btn.is-selected {
-	background: #ffffff !important;
-	color: #0f172a !important;
-	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+button.cux-delivery-tab-btn.is-active {
+background: #ffffff !important;
+color: var(--cux-primary) !important;
+box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12) !important;
+}
+
+.cux-tab-btn-lead {
+font-size: 10.5px;
+font-weight: 600;
+background: #f1f5f9;
+color: #334155;
+padding: 1px 6px;
+border-radius: 999px;
 }
 
 .cux-delivery-tab-summary {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin-top: 10px;
-	font-size: 12.5px;
-	color: #334155;
+display: flex;
+align-items: center;
+gap: 7px;
+margin-top: 10px;
+padding: 8px 12px;
+background: #ffffff;
+border: 1px solid #e2e8f0;
+border-radius: 6px;
+font-size: 12.5px;
+color: #334155;
 }
 
-/* Option 6C: Redesigned 2-Column Cards */
-.cux-delivery-grid-2col {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
-	gap: 10px;
+.cux-grid-2col-refined {
+display: grid;
+grid-template-columns: repeat(2, minmax(0, 1fr));
+gap: 10px;
 }
 
-.cux-delivery-card-2col {
-	background: #ffffff;
-	border: 1.5px solid #cbd5e1;
-	border-radius: 8px;
-	padding: 12px;
-	cursor: pointer;
+.cux-grid-2col-refined .cux-delivery-card {
+position: relative;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+gap: 8px;
+padding: 12px;
+background: #ffffff;
+border: 1.5px solid #cbd5e1;
+border-radius: 8px;
+cursor: pointer;
+margin: 0;
 }
 
-.cux-delivery-card-2col.is-selected {
-	border-color: #0f172a;
-	box-shadow: 0 0 0 1px #0f172a;
+.cux-grid-2col-refined .cux-delivery-card.is-active {
+border-color: var(--cux-primary);
+box-shadow: 0 0 0 1px var(--cux-primary);
 }
 
-.cux-card-top-title {
-	font-size: 13.5px;
-	font-weight: 700;
-	color: #0f172a;
-	margin-bottom: 8px;
-	line-height: 1.3;
+.cux-card-6c-title-row {
+display: flex;
+align-items: center;
+gap: 8px;
+width: 100%;
 }
 
-.cux-card-bottom-meta {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 6px;
-}
-
-.cux-card-subnote {
-	font-size: 11.5px;
-	color: #64748b;
-	margin-top: 6px;
+.cux-card-6c-meta-row {
+display: flex;
+align-items: center;
+flex-wrap: wrap;
+gap: 6px;
+font-size: 11.5px;
+color: #475569;
+padding-top: 6px;
+border-top: 1px solid #f1f5f9;
 }
 
 .cux-status-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: #16a34a;
-	display: inline-block;
+width: 8px;
+height: 8px;
+border-radius: 50%;
+flex-shrink: 0;
+background: var(--cux-success);
+display: inline-block;
 }
 
-/* Low Stock Banner & Full-Width Add to Cart */
-.cux-low-stock-banner {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin: 10px 0 14px;
-	padding: 10px 14px;
-	border-radius: 8px;
-	background: #fff7ed;
-	border: 1px solid #fed7aa;
-	color: #9a3412;
-	font-size: 13px;
-	font-weight: 600;
+.cux-status-dot.is-unavailable {
+background: #94a3b8;
 }
 
-.cux-low-stock-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: #ea580c;
+.cux-stock-alert-banner {
+margin-top: 10px;
+padding: 9px 12px;
+background: #fffbeb;
+border: 1px solid #fde68a;
+border-radius: 8px;
+display: flex;
+align-items: center;
+gap: 8px;
+color: #b45309;
+font-size: 12.5px;
 }
 
-.single-product .summary p.stock.in-stock {
-	display: none !important;
+.cux-stock-alert-dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: #d97706;
+flex-shrink: 0;
+}
+
+.woocommerce-variation-availability p.stock.in-stock {
+display: none !important;
 }
 
 .single-product form.cart .woocommerce-variation-add-to-cart,
 .single-product form.cart:not(.variations_form) {
-	display: flex !important;
-	align-items: stretch;
-	gap: 10px;
-	width: 100%;
+display: flex;
+align-items: stretch;
+gap: 10px;
+width: 100%;
+margin-top: 14px;
+}
+
+.single-product form.cart .quantity {
+margin: 0 !important;
+display: inline-flex;
+align-items: center;
 }
 
 .single-product form.cart .single_add_to_cart_button {
-	flex: 1 1 auto !important;
-	min-height: 46px !important;
-	margin: 0 !important;
-	border-radius: 8px !important;
-	font-size: 14px !important;
-	font-weight: 700 !important;
+flex: 1 1 auto !important;
+min-height: 46px !important;
+margin: 0 !important;
+border-radius: 8px !important;
+font-size: 14px !important;
+font-weight: 700 !important;
+letter-spacing: 0.04em !important;
 }
 
 /* ==========================================================================
-   5. SHOP & CATEGORY CARDS (FIXES PRICE COLLISION & OVERLAYS)
-   ========================================================================== */
-.product-small .box-image {
-	position: relative;
-}
+5. IN-PAGE "COMPLETE YOUR RIDE" CROSS-SELL CONFIGURATOR
+========================================================================== */
 
-.cux-card-overlays {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	z-index: 4;
-}
-
-.cux-card-badge-left {
-	position: absolute;
-	top: 10px;
-	left: 10px;
-	background: #0f172a;
-	color: #ffffff;
-	padding: 3px 9px;
-	border-radius: 999px;
-	font-size: 10.5px;
-	font-weight: 700;
-}
-
-.cux-card-badge-right {
-	position: absolute;
-	top: 10px;
-	right: 10px;
-	background: rgba(255, 255, 255, 0.92);
-	color: #0f172a;
-	border: 1px solid #cbd5e1;
-	padding: 2px 8px;
-	border-radius: 4px;
-	font-size: 10px;
-	font-weight: 700;
-}
-
-.cux-card-overlay-swatches {
-	position: absolute;
-	bottom: 10px;
-	left: 10px;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	background: rgba(255, 255, 255, 0.88);
-	backdrop-filter: blur(4px);
-	padding: 4px 8px;
-	border-radius: 999px;
-	pointer-events: auto;
-}
-
-.cux-card-meta-footer {
-	display: block;
-	width: 100%;
-	clear: both;
-	margin-top: 6px;
-}
-
-.cux-card-brand-line {
-	font-size: 10.5px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: #64748b;
-	margin-bottom: 2px;
-}
-
-.cux-card-spec-subtitle {
-	font-size: 12px;
-	color: #475569;
-	margin-bottom: 6px;
-}
-
-.cux-card-swatch-row {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin: 6px 0;
-}
-
-.cux-card-swatch-dot {
-	width: 20px !important;
-	height: 20px !important;
-	min-width: 20px !important;
-	min-height: 20px !important;
-	padding: 0 !important;
-	margin: 0 !important;
-	border-radius: 50% !important;
-	border: 1.5px solid #cbd5e1 !important;
-	cursor: pointer;
-}
-
-.cux-card-swatch-dot.is-active {
-	border-color: #0f172a !important;
-	box-shadow: 0 0 0 1.5px #ffffff, 0 0 0 3px #0f172a !important;
-}
-
-.cux-card-swatch-more {
-	font-size: 11px;
-	font-weight: 600;
-	color: #475569;
-}
-
-.cux-card-compare-label {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	font-size: 11.5px;
-	color: #475569;
-	margin-top: 4px;
-	cursor: pointer;
-}
-
-.cux-zara-quick-bar {
-	position: absolute;
-	bottom: 8px;
-	left: 8px;
-	right: 8px;
-	display: flex;
-	justify-content: center;
-	flex-wrap: wrap;
-	gap: 4px;
-	background: rgba(255, 255, 255, 0.94);
-	padding: 6px;
-	border-radius: 6px;
-	pointer-events: auto;
-	opacity: 0;
-	transition: opacity 0.18s ease;
-}
-
-.product-small:hover .cux-zara-quick-bar {
-	opacity: 1;
-}
-
-.cux-zara-size-pill {
-	padding: 4px 8px !important;
-	min-height: 26px !important;
-	font-size: 11px !important;
-	font-weight: 700 !important;
-	background: #ffffff !important;
-	color: #0f172a !important;
-	border: 1px solid #cbd5e1 !important;
-	border-radius: 4px !important;
-	margin: 0 !important;
-}
-
-/* ==========================================================================
-   6. COMPLETE YOUR RIDE DRAWER & LIGHTBOX MODALS (SIZE GUIDE & COMPARE)
-   ========================================================================== */
 .cux-complete-ride-box {
-	margin-top: 20px;
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	overflow: hidden;
-	background: #ffffff;
+margin: 20px 0;
+border: 1px solid #e2e8f0;
+border-radius: 10px;
+background: #ffffff;
+overflow: hidden;
 }
 
 .cux-cr-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 12px 16px;
-	background: #f8fafc;
-	border-bottom: 1px solid #e2e8f0;
-	cursor: pointer;
-	font-size: 13.5px;
-	color: #0f172a;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 13px 16px;
+background: #f8fafc;
+border-bottom: 1px solid #e2e8f0;
+cursor: pointer;
 }
 
-.cux-cr-body {
-	padding: 12px 16px;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
+.cux-cr-header h4 {
+margin: 0;
+font-size: 13.5px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.04em;
+color: #0f172a;
+}
+
+.cux-cr-item {
+padding: 14px 16px;
+border-bottom: 1px solid #f1f5f9;
+}
+
+.cux-cr-item:last-child {
+border-bottom: none;
 }
 
 .cux-cr-summary-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
+display: flex;
+align-items: center;
+gap: 14px;
 }
 
-.cux-cr-thumb-info {
-	display: flex;
-	align-items: center;
-	gap: 10px;
+.cux-cr-thumb {
+width: 60px;
+height: 60px;
+flex-shrink: 0;
+border-radius: 6px;
+background: #f8fafc;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
 }
 
 .cux-cr-thumb img {
-	width: 46px;
-	height: 46px;
-	object-fit: contain;
-	border-radius: 6px;
-	background: #f8fafc;
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.cux-cr-info {
+flex: 1;
+min-width: 0;
+}
+
+.cux-cr-mini-swatches {
+display: flex;
+gap: 5px;
+margin-bottom: 4px;
+}
+
+.cux-cr-dot {
+width: 12px;
+height: 12px;
+border-radius: 50%;
+border: 1px solid rgba(0, 0, 0, 0.2);
+cursor: pointer;
 }
 
 .cux-cr-title {
-	font-size: 13px;
-	font-weight: 600;
-	color: #0f172a;
-	text-decoration: none;
+display: block;
+font-size: 13.5px;
+font-weight: 600;
+color: #0f172a;
+text-decoration: none;
+margin-bottom: 2px;
 }
 
 .cux-cr-price {
-	font-size: 12px;
-	color: #475569;
+font-size: 13px;
+font-weight: 700;
+color: #334155;
 }
 
-.cux-modal-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 99999;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 20px;
+button.cux-cr-choose-btn,
+button.cux-cr-direct-add-btn,
+button.cux-cr-confirm-add-btn {
+background: #0f172a !important;
+color: #ffffff !important;
+border: 1px solid #0f172a !important;
+border-radius: 6px !important;
+padding: 8px 14px !important;
+font-size: 12px !important;
+font-weight: 600 !important;
+cursor: pointer;
+margin: 0 !important;
+min-height: 36px !important;
+line-height: 1.2 !important;
+white-space: nowrap;
+text-transform: none !important;
 }
 
-.cux-modal-backdrop {
-	position: fixed;
-	inset: 0;
-	background: rgba(15, 23, 42, 0.55);
+button.cux-cr-var-pill {
+background: #ffffff !important;
+color: #0f172a !important;
+border: 1.5px solid #cbd5e1 !important;
+border-radius: 6px !important;
+padding: 5px 10px !important;
+font-size: 12px !important;
+font-weight: 600 !important;
+margin: 0 6px 6px 0 !important;
+min-height: 32px !important;
+cursor: pointer;
 }
 
-.cux-modal-dialog {
-	position: relative;
-	z-index: 2;
-	background: #ffffff;
-	border-radius: 12px;
-	max-width: 820px;
-	width: 100%;
-	max-height: 85vh;
-	overflow-y: auto;
-	box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+button.cux-cr-var-pill.is-selected {
+background: #0f172a !important;
+color: #ffffff !important;
+border-color: #0f172a !important;
 }
 
-.cux-modal-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 16px 20px;
-	border-bottom: 1px solid #e2e8f0;
+/* ==========================================================================
+6. SIZE GUIDE LIGHTBOX MODAL & FLOATING COMPARE DRAWER
+========================================================================== */
+
+.cux-modal-overlay,
+.cux-compare-modal {
+position: fixed;
+inset: 0;
+z-index: 99999;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 20px;
 }
 
-.cux-modal-header h3 {
-	margin: 0;
-	font-size: 16px;
+.cux-modal-backdrop,
+.cux-compare-modal-backdrop {
+position: absolute;
+inset: 0;
+background: rgba(15, 23, 42, 0.65);
+backdrop-filter: blur(4px);
 }
 
-.cux-modal-close {
-	background: transparent !important;
-	border: 0 !important;
-	font-size: 24px !important;
-	line-height: 1 !important;
-	padding: 0 6px !important;
-	margin: 0 !important;
-	color: #475569 !important;
-	cursor: pointer;
+.cux-modal-dialog,
+.cux-compare-modal-content {
+position: relative;
+z-index: 2;
+width: 100%;
+max-width: 860px;
+max-height: 86vh;
+background: #ffffff;
+border-radius: 12px;
+box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+display: flex;
+flex-direction: column;
+overflow: hidden;
 }
 
-.cux-modal-body {
-	padding: 20px;
+.cux-modal-header,
+.cux-compare-modal-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 16px 22px;
+border-bottom: 1px solid #e2e8f0;
+background: #f8fafc;
+}
+
+.cux-modal-header h3,
+.cux-compare-modal-header h3 {
+margin: 0;
+font-size: 16px;
+font-weight: 700;
+color: #0f172a;
+}
+
+button.cux-modal-close,
+button.cux-compare-modal-close {
+background: transparent !important;
+border: none !important;
+font-size: 24px !important;
+line-height: 1 !important;
+color: #64748b !important;
+cursor: pointer;
+padding: 0 4px !important;
+margin: 0 !important;
+min-height: auto !important;
+box-shadow: none !important;
+}
+
+.cux-modal-body,
+.cux-compare-modal-body {
+padding: 22px;
+overflow-y: auto;
+}
+
+.cux-compare-modal-body {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+gap: 16px;
 }
 
 .cux-compare-bar {
-	position: fixed;
-	bottom: 20px;
-	left: 50%;
-	transform: translateX(-50%);
-	z-index: 9999;
-	background: #0f172a;
-	color: #ffffff;
-	padding: 10px 18px;
-	border-radius: 999px;
-	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
+position: fixed;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+z-index: 9990;
+background: #0f172a;
+color: #ffffff;
+padding: 10px 18px;
+border-radius: 999px;
+box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
 }
 
 .cux-compare-bar-inner {
-	display: flex;
-	align-items: center;
-	gap: 16px;
+display: flex;
+align-items: center;
+gap: 14px;
 }
 
-.cux-compare-thumbs {
-	display: inline-flex;
-	gap: 6px;
-	margin-left: 10px;
+.cux-compare-items {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.cux-compare-thumb-pill {
+width: 36px;
+height: 36px;
+border-radius: 50%;
+background: #ffffff;
+overflow: hidden;
+border: 2px solid #ffffff;
 }
 
 .cux-compare-thumb-pill img {
-	width: 30px;
-	height: 30px;
-	border-radius: 50%;
-	background: #ffffff;
-	object-fit: contain;
+width: 100%;
+height: 100%;
+object-fit: cover;
 }
 
-.cux-compare-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-	gap: 14px;
+button.cux-compare-open-modal-btn {
+background: #ffffff !important;
+color: #0f172a !important;
+border: none !important;
+border-radius: 999px !important;
+padding: 6px 14px !important;
+font-size: 12px !important;
+font-weight: 700 !important;
+margin: 0 !important;
+min-height: 32px !important;
+cursor: pointer;
+}
+
+button.cux-compare-clear-btn {
+background: transparent !important;
+color: #cbd5e1 !important;
+border: none !important;
+font-size: 12px !important;
+padding: 4px 8px !important;
+margin: 0 !important;
+min-height: auto !important;
+cursor: pointer;
+}
+
+/* ==========================================================================
+7. GALLERY COUNTER & RESPONSIVE BREAKPOINTS (TABLET & MOBILE)
+========================================================================== */
+
+.cux-gallery-counter-pill {
+position: absolute;
+bottom: 14px;
+right: 14px;
+background: rgba(15, 23, 42, 0.78);
+color: #ffffff;
+font-size: 11.5px;
+font-weight: 600;
+padding: 4px 10px;
+border-radius: 999px;
+z-index: 15;
+pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+.cux-grid-2col-refined {
+grid-template-columns: 1fr;
+}
+.cux-swatch-style-size_box button.cux-swatch-item {
+min-width: 56px !important;
+min-height: 44px !important;
+}
+}
+
+@media (max-width: 767px) {
+.cux-swatch-style-color_circle button.cux-swatch-item {
+width: 42px !important;
+height: 42px !important;
+min-width: 42px !important;
+min-height: 42px !important;
+}
+
+.cux-swatch-style-variation_image button.cux-swatch-item,
+.cux-swatch-style-color_circle button.cux-swatch-item.is-image-tile {
+	width: 52px !important;
+	height: 52px !important;
+	min-width: 52px !important;
+	min-height: 52px !important;
+}
+
+.cux-swatch-style-size_box button.cux-swatch-item {
+	min-width: 62px !important;
+	min-height: 44px !important;
+	padding: 10px 16px !important;
+	font-size: 14px !important;
+}
+
+.cux-delivery-row-item {
+	flex-wrap: wrap;
+}
+
+.cux-cr-summary-row {
+	flex-wrap: wrap;
+}
+
+.cux-cr-actions {
+	width: 100%;
+	margin-top: 6px;
+}
+
+.cux-cr-actions button {
+	width: 100%;
+}
+
+body.cux-mobile-gallery-floating_right .product-gallery {
+	position: relative;
+}
+
+body.cux-mobile-gallery-floating_right .product-thumbnails {
+	position: absolute !important;
+	top: 50% !important;
+	right: 10px !important;
+	transform: translateY(-50%) !important;
+	width: 54px !important;
+	max-height: 240px !important;
+	background: rgba(255, 255, 255, 0.85) !important;
+	backdrop-filter: blur(8px) !important;
+	border-radius: 12px !important;
+	padding: 6px !important;
+	z-index: 20 !important;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+	overflow: hidden !important;
+}
+
+
 }
