@@ -1,6 +1,6 @@
 <?php
 /**
- * Automated Stock Winner Calculator & Color-Gallery Auto-Copy Engine.
+ * Automated Stock Winner Calculator & Color-Gallery Auto-Copy Engine (v2.3.2).
  *
  * File Path: includes/sync/class-cux-stock-calculator.php
  *
@@ -9,9 +9,11 @@
  * 2. Auto-Copies Main Image & Variation Gallery across all sizes of the same color when uploaded to just one size.
  * 3. Calculates the Highest-Stock Winner (Grouped by Colorway or Single Highest SKU) with deterministic tie-breakers.
  * 4. Updates Parent Main Image, Parent Gallery (strictly excluding out-of-stock colors), and Default Variation Attributes.
- * 5. Compiles the zero-query `_cux_product_cache` JSON payload for Flatsome Shop Cards and Single Product Pages.
+ * 5. Compiles the zero-query `_cux_product_cache` JSON payload (including normalized cross-attribute stock maps)
+ *    for Flatsome Shop Cards and Single Product Pages.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -48,7 +50,7 @@ class CUX_Stock_Calculator {
 	 * Run the complete Auto-Copy Gallery & Highest-Stock Winner Sync for a Variable Product.
 	 *
 	 * @param int    $parent_id Parent variable product ID.
-	 * @param string $source    Trigger source (admin, order, csv, odoo, bulk).
+	 * @param string $source    Trigger source (admin, order, csv, rest, bulk).
 	 * @return bool True if synced successfully.
 	 */
 	public static function sync_parent_product( int $parent_id, string $source = 'admin' ): bool {
@@ -95,12 +97,19 @@ class CUX_Stock_Calculator {
 			$in_stock_colors    = array();
 
 			foreach ( $children_ids as $var_id ) {
+				$var_id    = (int) $var_id;
 				$variation = wc_get_product( $var_id );
 				if ( ! $variation || 'publish' !== $variation->get_status() ) {
 					continue;
 				}
 
 				$attrs       = $variation->get_variation_attributes( false );
+				$norm_attrs  = array();
+				foreach ( $attrs as $ak => $av ) {
+					$clean_key                = 'attribute_' . sanitize_title( (string) $ak );
+					$norm_attrs[ $clean_key ] = '' !== (string) $av ? sanitize_title( (string) $av ) : '';
+				}
+
 				$color_slug  = self::extract_attribute_value( $attrs, $primary_attr );
 				$visual_hash = self::build_visual_hash( $attrs, $visual_attrs );
 
@@ -111,15 +120,15 @@ class CUX_Stock_Calculator {
 				// Resolve variation images (Main + Extra Angles) from our collected pool.
 				$var_gallery = $visual_galleries[ $visual_hash ] ?? ( $visual_galleries[ $color_slug ] ?? array() );
 				if ( empty( $var_gallery ) ) {
-					$own_main = (int) get_post_meta( $var_id, '_thumbnail_id', true );
-					$own_ext  = self::get_variation_extra_image_ids( $var_id );
+					$own_main    = (int) get_post_meta( $var_id, '_thumbnail_id', true );
+					$own_ext     = self::get_variation_extra_image_ids( $var_id );
 					$var_gallery = array_values( array_unique( array_filter( array_merge( array( $own_main ), $own_ext ) ) ) );
 				}
 
 				$main_img_id = ! empty( $var_gallery[0] ) ? (int) $var_gallery[0] : 0;
 				$extra_ids   = count( $var_gallery ) > 1 ? array_slice( $var_gallery, 1 ) : array();
 
-				// Record availability matrix entry for frontend Delivery & Swatch UI (includes both in-stock and out-of-stock).
+				// Record availability matrix entry for frontend Delivery & Cross-Attribute Swatch UI.
 				$var_low_limit = get_post_meta( $var_id, '_cux_low_stock_limit', true );
 				$low_limit     = ( '' !== $var_low_limit ) ? (int) $var_low_limit : $low_stock_default;
 				$is_low_stock  = $is_in_stock && $variation->get_manage_stock() && $stock_qty > 0 && $stock_qty <= $low_limit;
@@ -132,6 +141,7 @@ class CUX_Stock_Calculator {
 				$availability_map[ $var_id ] = array(
 					'var_id'        => $var_id,
 					'attributes'    => $attrs,
+					'norm_attrs'    => $norm_attrs,
 					'color_slug'    => $color_slug,
 					'visual_hash'   => $visual_hash,
 					'is_in_stock'   => $is_in_stock,
@@ -277,11 +287,11 @@ class CUX_Stock_Calculator {
 				}
 				$seen_colors[ $c_slug ] = true;
 
-				$term_info          = self::get_color_term_swatch_data( $primary_attr, $c_slug );
-				$card_img_src       = wp_get_attachment_image_src( $cand['main_img'], 'woocommerce_thumbnail' );
-				$second_angle_id    = ! empty( $cand['extra_imgs'][0] ) ? $cand['extra_imgs'][0] : $cand['main_img'];
-				$second_angle_src   = wp_get_attachment_image_src( $second_angle_id, 'woocommerce_thumbnail' );
-				$attr_query_key     = 'attribute_' . ( 0 === strpos( $primary_attr, 'pa_' ) ? $primary_attr : sanitize_title( $primary_attr ) );
+				$term_info        = self::get_color_term_swatch_data( $primary_attr, $c_slug );
+				$card_img_src     = wp_get_attachment_image_src( $cand['main_img'], 'woocommerce_thumbnail' );
+				$second_angle_id  = ! empty( $cand['extra_imgs'][0] ) ? $cand['extra_imgs'][0] : $cand['main_img'];
+				$second_angle_src = wp_get_attachment_image_src( $second_angle_id, 'woocommerce_thumbnail' );
+				$attr_query_key   = 'attribute_' . ( 0 === strpos( $primary_attr, 'pa_' ) ? $primary_attr : sanitize_title( $primary_attr ) );
 
 				$in_stock_colors[] = array(
 					'slug'             => $c_slug,
@@ -339,9 +349,6 @@ class CUX_Stock_Calculator {
 	/**
 	 * Auto-Copy Main Image & Extra Gallery Images across variations sharing the same Color/Visual group.
 	 *
-	 * If a user uploads a main image and/or variation gallery to ONE size of "Black", this method
-	 * automatically copies those images to all other sizes of "Black" that don't have images yet.
-	 *
 	 * @param int    $parent_id         Parent product ID.
 	 * @param array  $children_ids      Variation IDs.
 	 * @param string $primary_attr      Primary visual attribute slug (e.g. pa_colour).
@@ -374,6 +381,7 @@ class CUX_Stock_Calculator {
 		// Pass 1: Scan all variations to discover uploaded main images & extra gallery images per Color / Visual Hash.
 		$variation_records = array();
 		foreach ( $children_ids as $var_id ) {
+			$var_id    = (int) $var_id;
 			$variation = wc_get_product( $var_id );
 			if ( ! $variation ) {
 				continue;
@@ -503,7 +511,6 @@ class CUX_Stock_Calculator {
 			} elseif ( 'visual_secondary' === $saved_role || in_array( $name, $spec_keywords, true ) ) {
 				$secondary[] = $name;
 			} else {
-				// Default fallback: if we haven't found a primary visual attribute yet, use the first non-size attribute.
 				if ( empty( $primary ) ) {
 					$primary = $name;
 				} else {
@@ -581,7 +588,13 @@ class CUX_Stock_Calculator {
 
 		if ( $term && ! is_wp_error( $term ) ) {
 			$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
+			if ( '' === $hex_1 ) {
+				$hex_1 = (string) get_term_meta( $term->term_id, '_cux_swatch_hex', true );
+			}
 			$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
+			if ( '' === $hex_2 ) {
+				$hex_2 = (string) get_term_meta( $term->term_id, '_cux_swatch_hex_2', true );
+			}
 			$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
 			$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
 
