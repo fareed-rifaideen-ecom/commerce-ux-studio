@@ -1,19 +1,20 @@
 <?php
 /**
- * Hybrid Debounce Queue Dispatcher & WooCommerce / CSV / Odoo Event Listeners.
+ * Hybrid Debounce Queue Dispatcher & WooCommerce / CSV / REST Event Listeners (v2.3.2).
  *
  * File Path: includes/sync/class-cux-queue-dispatcher.php
  *
  * Responsibilities:
  * 1. Listens for product saves, variation saves, customer order stock changes,
- *    WooCommerce CSV imports, and direct `_stock` / `_product_image_gallery` meta updates (Odoo ERP).
+ *    WooCommerce CSV imports, and direct `_stock` / `_product_image_gallery` meta updates.
  * 2. Debounces multiple variation updates for the same parent product into a single queue entry.
  * 3. Hybrid Execution:
  *    - 1 to 5 Parent Products in a request: Syncs immediately once on WordPress `shutdown`.
- *    - 6+ Parent Products (Bulk CSV / Odoo Batch): Offloads to WooCommerce Action Scheduler in chunks.
+ *    - 6+ Parent Products (Bulk CSV / REST Batch): Offloads to WooCommerce Action Scheduler in chunks.
  * 4. Powers the AJAX Batch Processor for the "Sync All Products Now" button in the Admin Studio.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -50,7 +51,7 @@ class CUX_Queue_Dispatcher {
 		// 3. WooCommerce Native CSV Importer Listener.
 		add_action( 'woocommerce_product_import_inserted_product_object', array( __CLASS__, 'on_csv_product_imported' ), 30, 1 );
 
-		// 4. Direct Post Meta Listener (Catches Odoo ERP webhooks & REST API updates to _stock or galleries).
+		// 4. Direct Post Meta Listener (Catches REST API & external connector updates to _stock or galleries).
 		add_action( 'updated_post_meta', array( __CLASS__, 'on_direct_meta_updated' ), 30, 4 );
 		add_action( 'added_post_meta', array( __CLASS__, 'on_direct_meta_updated' ), 30, 4 );
 
@@ -68,7 +69,7 @@ class CUX_Queue_Dispatcher {
 	 * Add a parent variable product ID to the per-request debounce queue.
 	 *
 	 * @param int    $parent_id Parent product ID.
-	 * @param string $source    Trigger source (admin, order, csv, odoo).
+	 * @param string $source    Trigger source (admin, order, csv, rest_or_meta).
 	 */
 	public static function queue_parent( int $parent_id, string $source = 'admin' ): void {
 		if ( $parent_id <= 0 ) {
@@ -160,7 +161,7 @@ class CUX_Queue_Dispatcher {
 	}
 
 	/**
-	 * Listener: Catch direct `update_post_meta()` calls on variations (e.g. Custom Odoo ERP Connector).
+	 * Listener: Catch direct `update_post_meta()` calls on variations (e.g. REST API or external inventory sync).
 	 *
 	 * @param int    $meta_id    Meta ID.
 	 * @param int    $object_id  Post ID.
@@ -185,7 +186,7 @@ class CUX_Queue_Dispatcher {
 		if ( 'product_variation' === get_post_type( $object_id ) ) {
 			$parent_id = wp_get_post_parent_id( $object_id );
 			if ( $parent_id > 0 ) {
-				self::queue_parent( $parent_id, 'odoo_or_meta' );
+				self::queue_parent( $parent_id, 'rest_or_meta' );
 			}
 		}
 	}
@@ -193,14 +194,14 @@ class CUX_Queue_Dispatcher {
 	/**
 	 * Hybrid Shutdown Dispatcher:
 	 * - If 1 to 5 parent products are queued, sync them immediately.
-	 * - If 6+ parent products are queued (bulk CSV or Odoo batch), schedule background chunks of 25.
+	 * - If 6+ parent products are queued (bulk CSV or REST batch), schedule background chunks of 25.
 	 */
 	public static function dispatch_queued_parents(): void {
 		if ( empty( self::$queued_parents ) || ! class_exists( 'CUX_Stock_Calculator' ) ) {
 			return;
 		}
 
-		$queue             = self::$queued_parents;
+		$queue                = self::$queued_parents;
 		self::$queued_parents = array();
 
 		$total_queued = count( $queue );
