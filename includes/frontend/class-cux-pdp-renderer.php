@@ -1,7 +1,7 @@
 <?php
 /**
  * Single Product Page (PDP) Swatches, Cross-Attribute Availability Engine,
- * Strict Variation Gallery Isolation, Brand Sync, Size Guide Modal & Delivery Switcher (v2.3.1).
+ * Strict Variation Gallery Isolation, Brand Sync, Size Guide Modal & Delivery Switcher (v2.3.2).
  *
  * File Path: includes/frontend/class-cux-pdp-renderer.php
  *
@@ -1029,8 +1029,8 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$raw_layout     = (string) ( $config['delivery_layout_style'] ?? 'option_6a' );
-		$layout_style   = 'stacked_rows_6a';
+		$raw_layout   = (string) ( $config['delivery_layout_style'] ?? 'option_6a' );
+		$layout_style = 'stacked_rows_6a';
 		if ( 'tabs_pill_6b' === $raw_layout || 'option_6b' === $raw_layout ) {
 			$layout_style = 'tabs_pill_6b';
 		} elseif ( 'cards_2col_6c' === $raw_layout || 'option_6c' === $raw_layout ) {
