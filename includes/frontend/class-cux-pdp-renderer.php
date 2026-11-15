@@ -1,11 +1,12 @@
 <?php
 /**
  * Single Product Page (PDP) Swatches, Flatsome Flickity Gallery Bridge,
- * Universal WooCommerce Shipping Zone/Class Delivery Switcher & "Complete Your Ride" Configurator.
+ * Brand Sync, Size Guide Modal, Multi-Layout Delivery Switcher & "Complete Your Ride" (v2.3).
  *
  * File Path: includes/frontend/class-cux-pdp-renderer.php
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -21,27 +22,36 @@ class CUX_PDP_Renderer {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ), 30 );
 		add_filter( 'body_class', array( __CLASS__, 'add_pdp_body_classes' ) );
 
-		// 1. Render Technical Spec Subtitle & Badges below Single Product Title.
+		// 1. Render Synced WooCommerce Brand (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
+		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_pdp_brand_header' ), 4 );
+
+		// 2. Render Clean 1-Line Spec Subtitle below Single Product Title (Option 2A vs Option 2B).
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_pdp_spec_subtitle' ), 6 );
 
-		// 2. Enhance Variation Attribute Dropdowns with Visual Swatches, Size Guide & Spec Radio Cards.
+		// 3. Enhance Variation Attribute Dropdowns with Visual/Image Swatches, Active Contrast & Size Guide Trigger.
 		add_filter( 'woocommerce_dropdown_variation_attribute_options_html', array( __CLASS__, 'render_custom_swatch_controls' ), 20, 2 );
 
-		// 3. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
+		// 4. Reposition WooCommerce's native "Clear" link so it never overlaps the Colour label.
+		add_filter( 'woocommerce_reset_variations_link', array( __CLASS__, 'filter_reset_variations_link' ), 20 );
+
+		// 5. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
 		add_action( 'woocommerce_before_variations_form', array( __CLASS__, 'render_pdp_json_payload' ), 10 );
 
-		// 4. Render Universal WooCommerce Delivery Method Switcher & Low Stock Warning above Add to Cart button.
+		// 6. Render Configurable Delivery Switcher (6A Rows / 6B Tabs / 6C Cards) & Low Stock Warning above Add to Cart.
 		add_action( 'woocommerce_before_single_variation', array( __CLASS__, 'render_delivery_and_low_stock_block' ), 25 );
 
-		// 5. Sync customer's selected Delivery Method Card directly into WooCommerce Cart & Checkout Shipping Session.
+		// 7. Sync customer's selected Delivery Method directly into WooCommerce Cart & Checkout Shipping Session.
 		add_action( 'woocommerce_add_to_cart', array( __CLASS__, 'sync_chosen_delivery_method_to_wc_session' ), 20 );
 		add_action( 'wp_ajax_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 		add_action( 'wp_ajax_nopriv_cux_set_shipping_method', array( __CLASS__, 'ajax_set_shipping_method' ) );
 
-		// 6. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
+		// 8. Render In-Page "Complete Your Ride" Cross-Sell Configurator below Add to Cart form.
 		add_action( 'woocommerce_after_add_to_cart_form', array( __CLASS__, 'render_complete_your_ride_block' ), 15 );
 
-		// 7. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
+		// 9. Render Smart Size Guide Lightbox Modal (supports [block id="..."] shortcodes, slugs, or IDs) in Footer.
+		add_action( 'wp_footer', array( __CLASS__, 'render_size_guide_modal' ), 25 );
+
+		// 10. AJAX Quick Add-to-Cart endpoint (used by Complete Your Ride & Catalog Quick-Add).
 		add_action( 'wp_ajax_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 		add_action( 'wp_ajax_nopriv_cux_quick_add_to_cart', array( __CLASS__, 'ajax_quick_add_to_cart' ) );
 	}
@@ -72,45 +82,101 @@ class CUX_PDP_Renderer {
 			true
 		);
 
-		wp_localize_script(
-			'cux-frontend-ux',
-			'cuxFrontendVars',
-			array(
-				'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
-				'wcAjaxUrl'      => class_exists( 'WC_AJAX' ) ? WC_AJAX::get_endpoint( '%%endpoint%%' ) : '',
-				'nonce'          => wp_create_nonce( 'cux_frontend_nonce' ),
-				'i18nChooseOpts' => __( 'Choose Options', 'commerce-ux-studio' ),
-				'i18nAddToCart'  => __( 'Add to Cart', 'commerce-ux-studio' ),
-				'i18nOutOfStock' => __( 'Out of Stock', 'commerce-ux-studio' ),
-				'i18nAdded'      => __( 'Added to Cart', 'commerce-ux-studio' ),
-				'i18nLowStock'   => __( 'Low Stock', 'commerce-ux-studio' ),
-				'i18nInStock'    => __( 'In Stock', 'commerce-ux-studio' ),
-			)
+		$localized_payload = array(
+			'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
+			'wcAjaxUrl'      => class_exists( 'WC_AJAX' ) ? WC_AJAX::get_endpoint( '%%endpoint%%' ) : '',
+			'nonce'          => wp_create_nonce( 'cux_frontend_nonce' ),
+			'i18nChooseOpts' => __( 'Choose Options', 'commerce-ux-studio' ),
+			'i18nAddToCart'  => __( 'Add to Cart', 'commerce-ux-studio' ),
+			'i18nOutOfStock' => __( 'Out of Stock', 'commerce-ux-studio' ),
+			'i18nAdded'      => __( 'Added to Cart', 'commerce-ux-studio' ),
+			'i18nLowStock'   => __( 'Low Stock', 'commerce-ux-studio' ),
+			'i18nInStock'    => __( 'In Stock', 'commerce-ux-studio' ),
 		);
+
+		wp_localize_script( 'cux-frontend-ux', 'cuxFrontendVars', $localized_payload );
 	}
 
 	/**
-	 * Add mobile gallery layout and preset classes to the page body.
+	 * Add mobile gallery layout, sticky desktop gallery, active swatch contrast, and preset classes to the page body.
 	 *
 	 * @param array $classes Existing body classes.
 	 * @return array
 	 */
 	public static function add_pdp_body_classes( array $classes ): array {
 		if ( function_exists( 'is_product' ) && is_product() ) {
-			$product_id = get_the_ID();
-			if ( $product_id ) {
-				$config        = CUX_Inheritance_Engine::resolve_product_config( (int) $product_id );
-				$mobile_layout = $config['mobile_gallery_layout'] ?? 'floating_right';
-				$preset        = $config['catalog_card_preset'] ?? 'specialized_spec';
-				$classes[]     = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
-				$classes[]     = 'cux-pdp-preset-' . sanitize_html_class( $preset );
+			$product_id = (int) get_the_ID();
+			if ( $product_id > 0 ) {
+				$config         = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+				$mobile_layout  = $config['mobile_gallery_layout'] ?? 'floating_right';
+				$preset         = $config['catalog_card_preset'] ?? 'specialized_spec';
+				$active_style   = $config['swatch_active_style'] ?? 'checkmark_4a';
+				$sticky_gallery = $config['sticky_desktop_gallery'] ?? 'yes';
+
+				$classes[] = 'cux-mobile-gallery-' . sanitize_html_class( $mobile_layout );
+				$classes[] = 'cux-pdp-preset-' . sanitize_html_class( $preset );
+				$classes[] = 'cux-swatch-contrast-' . sanitize_html_class( $active_style );
+
+				if ( 'yes' === $sticky_gallery ) {
+					$classes[] = 'cux-sticky-gallery-enabled';
+				}
 			}
 		}
 		return $classes;
 	}
 
 	/**
-	 * 1. Render Technical Spec Subtitle, Tagline, and Badges below the Single Product Title.
+	 * 1. Render Synced WooCommerce Brand on Single Product Header (Option 1A Eyebrow or Option 1B Breadcrumb Pill).
+	 */
+	public static function render_pdp_brand_header(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id = (int) $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$brand_mode = $config['brand_sync_display'] ?? 'eyebrow_1a';
+
+		if ( 'cards_schema_1c' === $brand_mode ) {
+			return;
+		}
+
+		$brand = CUX_Inheritance_Engine::resolve_product_brand( $product_id );
+		if ( empty( $brand['name'] ) ) {
+			return;
+		}
+
+		if ( 'breadcrumb_1b' === $brand_mode ) :
+			?>
+			<div class="cux-pdp-brand-pill-wrap">
+				<?php if ( ! empty( $brand['url'] ) ) : ?>
+					<a href="<?php echo esc_url( $brand['url'] ); ?>" class="cux-pdp-brand-pill">
+						<?php echo esc_html( $brand['name'] ); ?>
+					</a>
+				<?php else : ?>
+					<span class="cux-pdp-brand-pill"><?php echo esc_html( $brand['name'] ); ?></span>
+				<?php endif; ?>
+			</div>
+			<?php
+		else :
+			?>
+			<div class="cux-pdp-brand-eyebrow">
+				<?php if ( ! empty( $brand['url'] ) ) : ?>
+					<a href="<?php echo esc_url( $brand['url'] ); ?>" class="cux-pdp-brand-link">
+						<?php echo esc_html( $brand['name'] ); ?>
+					</a>
+				<?php else : ?>
+					<span class="cux-pdp-brand-link"><?php echo esc_html( $brand['name'] ); ?></span>
+				<?php endif; ?>
+			</div>
+			<?php
+		endif;
+	}
+
+	/**
+	 * 2. Render Clean 1-Line Technical Spec Subtitle below Single Product Title (when Option 2A is selected).
+	 *    Prevents Card Badges and Taglines from stacking and cluttering the area between Title and Price.
 	 */
 	public static function render_pdp_spec_subtitle(): void {
 		global $product;
@@ -118,31 +184,29 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$product_id = $product->get_id();
-		$subtitle   = (string) get_post_meta( $product_id, '_cux_spec_subtitle', true );
-		$tagline    = (string) get_post_meta( $product_id, '_cux_tagline', true );
-		$badge_tl   = (string) get_post_meta( $product_id, '_cux_badge_tl', true );
+		$product_id  = (int) $product->get_id();
+		$config      = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$header_mode = $config['pdp_header_meta_mode'] ?? 'subtitle_only_2a';
 
-		if ( empty( $subtitle ) && empty( $tagline ) && empty( $badge_tl ) ) {
+		// Option 2B: Show custom card fields strictly on Shop Cards only.
+		if ( 'cards_only_2b' === $header_mode ) {
+			return;
+		}
+
+		$subtitle = (string) get_post_meta( $product_id, '_cux_spec_subtitle', true );
+		if ( '' === trim( $subtitle ) ) {
 			return;
 		}
 		?>
 		<div class="cux-pdp-header-meta">
-			<?php if ( ! empty( $badge_tl ) ) : ?>
-				<span class="cux-pdp-badge-pill"><?php echo esc_html( $badge_tl ); ?></span>
-			<?php endif; ?>
-			<?php if ( ! empty( $subtitle ) ) : ?>
-				<div class="cux-pdp-spec-subtitle"><?php echo esc_html( $subtitle ); ?></div>
-			<?php endif; ?>
-			<?php if ( ! empty( $tagline ) ) : ?>
-				<div class="cux-pdp-tagline"><?php echo esc_html( $tagline ); ?></div>
-			<?php endif; ?>
+			<div class="cux-pdp-spec-subtitle"><?php echo esc_html( $subtitle ); ?></div>
 		</div>
 		<?php
 	}
 
 	/**
-	 * 2. Render visual Swatches (Color Circles, Size Boxes, or Rich Spec Radio Cards) alongside the hidden native <select>.
+	 * 3. Render visual Swatches (Color Circles, Variation Thumbnail Photos, Size Boxes, or Spec Radio Cards)
+	 *    with Selected vs. Deselected Contrast (Option 4A Checkmark vs Option 4B Border + Dot).
 	 *
 	 * @param string $html Original WooCommerce <select> HTML.
 	 * @param array  $args Dropdown arguments.
@@ -157,25 +221,28 @@ class CUX_PDP_Renderer {
 			return $html;
 		}
 
-		$product_id = $product->get_id();
+		$product_id = (int) $product->get_id();
 		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
 
-		$attr_clean   = strtolower( (string) $attribute );
-		$role         = 'dimensional';
-		$style        = 'size_box';
-		$primary_attr = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
-		$visual_attrs = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
+		$attr_clean        = strtolower( (string) $attribute );
+		$role              = 'dimensional';
+		$style             = 'size_box';
+		$primary_attr      = strtolower( (string) ( $cache['primary_visual_attr'] ?? 'pa_color' ) );
+		$visual_attrs      = array_map( 'strtolower', (array) ( $cache['visual_attrs'] ?? array( 'pa_color', 'pa_colour' ) ) );
+		$visual_swatch_cfg = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+		$active_contrast   = $config['swatch_active_style'] ?? 'checkmark_4a';
 
 		if ( $attr_clean === $primary_attr || false !== strpos( $attr_clean, 'color' ) || false !== strpos( $attr_clean, 'colour' ) ) {
 			$role  = 'visual_primary';
-			$style = 'color_circle';
+			$style = ( 'variation_photo' === $visual_swatch_cfg ) ? 'variation_image' : 'color_circle';
 		} elseif ( in_array( $attr_clean, $visual_attrs, true ) || false !== strpos( $attr_clean, 'groupset' ) || false !== strpos( $attr_clean, 'spec' ) || false !== strpos( $attr_clean, 'wheelset' ) ) {
 			$role  = 'visual_secondary';
 			$style = 'radio_card';
 		}
 
-		if ( taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
+		// Respect explicit per-attribute override if set in Products > Attributes, unless global Variation Photo mode is forced.
+		if ( 'variation_photo' !== $visual_swatch_cfg && taxonomy_exists( $attribute ) && function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
 			$attr_id    = wc_attribute_taxonomy_id_by_name( $attribute );
 			$saved_type = $attr_id ? (string) get_option( "cux_swatch_type_{$attr_id}", '' ) : '';
 			if ( ! empty( $saved_type ) ) {
@@ -187,20 +254,17 @@ class CUX_PDP_Renderer {
 			return $html;
 		}
 
-		$size_guide_block = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
-		if ( empty( $size_guide_block ) ) {
-			$size_guide_block = (string) ( $config['size_guide_id'] ?? '' );
-		}
-		$show_size_guide = ( 'dimensional' === $role && ! empty( $size_guide_block ) );
+		$size_guide      = CUX_Inheritance_Engine::resolve_size_guide_block( $product_id );
+		$show_size_guide = ( 'dimensional' === $role && ! empty( $size_guide['shortcode'] ) );
 
-		$option_meta = self::build_attribute_option_meta( $product, $attribute, $options, $cache );
+		$option_meta = self::build_attribute_option_meta( $product, $attribute, $options, $cache, $visual_swatch_cfg );
 		$selected    = isset( $args['selected'] ) ? (string) $args['selected'] : '';
 		$oos_mode    = $config['oos_swatch_behavior'] ?? 'clickable_preview';
 		$attr_label  = wc_attribute_label( $attribute, $product );
 
 		ob_start();
 		?>
-		<div class="cux-swatch-control-wrap"
+		<div class="cux-swatch-control-wrap cux-contrast-<?php echo esc_attr( $active_contrast ); ?>"
 			data-attribute="<?php echo esc_attr( 'attribute_' . sanitize_title( $attribute ) ); ?>"
 			data-attr-raw="<?php echo esc_attr( $attribute ); ?>"
 			data-role="<?php echo esc_attr( $role ); ?>"
@@ -215,20 +279,20 @@ class CUX_PDP_Renderer {
 						if ( ! empty( $selected ) && isset( $option_meta[ $selected ]['name'] ) ) {
 							echo esc_html( $option_meta[ $selected ]['name'] );
 						} else {
-							esc_html_e( 'Select', 'commerce-ux-studio' );
+							esc_html_e( 'Select an option', 'commerce-ux-studio' );
 						}
 						?>
 					</span>
 				</div>
 				<?php if ( $show_size_guide ) : ?>
-					<button type="button" class="cux-size-guide-trigger" data-size-guide="<?php echo esc_attr( $size_guide_block ); ?>">
+					<button type="button" class="cux-size-guide-trigger" data-size-guide="cux-size-guide-modal">
 						<span class="dashicons dashicons-editor-help"></span>
-						<?php esc_html_e( 'Size Guide', 'commerce-ux-studio' ); ?>
+						<span><?php esc_html_e( 'Size Guide', 'commerce-ux-studio' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</div>
 
-			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( $attr_label ); ?>">
+			<div class="cux-swatch-items cux-swatch-style-<?php echo esc_attr( $style ); ?> <?php echo ! empty( $selected ) ? 'has-selection' : ''; ?>" role="radiogroup" aria-label="<?php echo esc_attr( $attr_label ); ?>">
 				<?php
 				foreach ( $options as $option_val ) :
 					$meta = $option_meta[ $option_val ] ?? null;
@@ -240,10 +304,15 @@ class CUX_PDP_Renderer {
 						continue;
 					}
 
-					$is_selected  = ( sanitize_title( $selected ) === sanitize_title( $option_val ) );
+					$is_selected  = ( '' !== $selected && sanitize_title( $selected ) === sanitize_title( $option_val ) );
 					$item_classes = array( 'cux-swatch-item' );
 					if ( $is_selected ) {
 						$item_classes[] = 'is-selected';
+					} else {
+						$item_classes[] = 'is-deselected';
+					}
+					if ( ! empty( $meta['is_image_swatch'] ) ) {
+						$item_classes[] = 'is-image-tile';
 					}
 					if ( ! $meta['has_stock'] ) {
 						$item_classes[] = 'is-out-of-stock';
@@ -264,6 +333,8 @@ class CUX_PDP_Renderer {
 
 						<?php if ( 'color_circle' === $style || 'variation_image' === $style ) : ?>
 							<span class="cux-color-circle-inner" style="background: <?php echo esc_attr( $meta['bg_css'] ); ?>;"></span>
+							<span class="cux-swatch-check-badge" aria-hidden="true">&#10003;</span>
+							<span class="cux-swatch-bottom-dot" aria-hidden="true"></span>
 						<?php elseif ( 'radio_card' === $style ) : ?>
 							<span class="cux-radio-card-top">
 								<strong class="cux-radio-card-title"><?php echo esc_html( $meta['name'] ); ?></strong>
@@ -278,11 +349,16 @@ class CUX_PDP_Renderer {
 							<?php if ( ! empty( $meta['price_html'] ) ) : ?>
 								<span class="cux-radio-card-price"><?php echo wp_kses_post( $meta['price_html'] ); ?></span>
 							<?php endif; ?>
+							<span class="cux-swatch-check-badge" aria-hidden="true">&#10003;</span>
 						<?php else : ?>
-							<span class="cux-size-box-text"><?php echo esc_html( $meta['name'] ); ?></span>
+							<span class="cux-size-box-inner">
+								<span class="cux-size-check-inline" aria-hidden="true">&#10003;</span>
+								<span class="cux-size-box-text"><?php echo esc_html( $meta['name'] ); ?></span>
+							</span>
 							<?php if ( ! empty( $meta['restock_eta'] ) && ! $meta['has_stock'] ) : ?>
 								<small class="cux-size-eta"><?php echo esc_html( $meta['restock_eta'] ); ?></small>
 							<?php endif; ?>
+							<span class="cux-swatch-bottom-dot" aria-hidden="true"></span>
 						<?php endif; ?>
 					</button>
 				<?php endforeach; ?>
@@ -297,15 +373,35 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * Build metadata (label, swatch CSS gradient/image, stock status, restock ETA) for each option of an attribute.
+	 * 4. Wrap WooCommerce's native "Clear" link in a clean block row so it never overlaps the Colour label.
 	 *
-	 * @param WC_Product $product   Variable product.
-	 * @param string     $attribute Attribute name.
-	 * @param array      $options   Option values.
-	 * @param array      $cache     Precomputed product cache.
+	 * @param string $link_html Original reset link HTML.
+	 * @return string
+	 */
+	public static function filter_reset_variations_link( string $link_html ): string {
+		if ( empty( $link_html ) ) {
+			return $link_html;
+		}
+		return '<div class="cux-reset-variations-wrap">' . $link_html . '</div>';
+	}
+
+	/**
+	 * Build metadata (label, swatch CSS gradient/image, variation photo, stock status, restock ETA) for each option.
+	 *
+	 * @param WC_Product $product           Variable product.
+	 * @param string     $attribute         Attribute name.
+	 * @param array      $options           Option values.
+	 * @param array      $cache             Precomputed product cache.
+	 * @param string     $visual_swatch_cfg Global visual swatch display mode.
 	 * @return array
 	 */
-	private static function build_attribute_option_meta( WC_Product $product, string $attribute, array $options, array $cache ): array {
+	private static function build_attribute_option_meta(
+		WC_Product $product,
+		string $attribute,
+		array $options,
+		array $cache,
+		string $visual_swatch_cfg = 'hybrid_auto'
+	): array {
 		$result      = array();
 		$avail_map   = $cache['availability_matrix'] ?? array();
 		$attr_lookup = strtolower( (string) $attribute );
@@ -318,13 +414,13 @@ class CUX_PDP_Renderer {
 		}
 
 		foreach ( $options as $opt_val ) {
-			$slug    = sanitize_title( (string) $opt_val );
-			$name    = (string) $opt_val;
-			$hex_1   = '';
-			$hex_2   = '';
-			$split   = 'horizontal';
-			$img_url = '';
-			$tooltip = '';
+			$slug         = sanitize_title( (string) $opt_val );
+			$name         = (string) $opt_val;
+			$hex_1        = '';
+			$hex_2        = '';
+			$split        = 'horizontal';
+			$term_img_url = '';
+			$tooltip      = '';
 
 			if ( taxonomy_exists( $attribute ) ) {
 				$term = get_term_by( 'slug', $opt_val, $attribute );
@@ -332,13 +428,13 @@ class CUX_PDP_Renderer {
 					$term = get_term_by( 'name', $opt_val, $attribute );
 				}
 				if ( $term && ! is_wp_error( $term ) ) {
-					$name    = $term->name;
-					$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
-					$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
-					$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
-					$img_id  = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
-					$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
-					$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
+					$name         = $term->name;
+					$hex_1        = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
+					$hex_2        = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
+					$split        = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
+					$img_id       = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
+					$term_img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
+					$tooltip      = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
 				}
 			}
 
@@ -372,8 +468,18 @@ class CUX_PDP_Renderer {
 				$has_stock = true;
 			}
 
-			if ( 'variation_image' === $attr_style && empty( $img_url ) && ! empty( $var_thumb_url ) ) {
-				$img_url = $var_thumb_url;
+			// Resolve whether to display an image swatch vs color/gradient swatch based on Dashboard setting.
+			$final_img_url   = '';
+			$is_image_swatch = false;
+
+			if ( 'variation_photo' === $visual_swatch_cfg || 'variation_image' === $attr_style ) {
+				$final_img_url   = ! empty( $var_thumb_url ) ? $var_thumb_url : $term_img_url;
+				$is_image_swatch = ! empty( $final_img_url );
+			} elseif ( 'hybrid_auto' === $visual_swatch_cfg ) {
+				if ( ! empty( $term_img_url ) ) {
+					$final_img_url   = $term_img_url;
+					$is_image_swatch = true;
+				}
 			}
 
 			if ( empty( $hex_1 ) && ! empty( $cache['in_stock_colors'] ) ) {
@@ -397,16 +503,17 @@ class CUX_PDP_Renderer {
 				}
 			}
 
-			$bg_css = self::compile_swatch_background_css( $hex_1, $hex_2, $split, $img_url );
+			$bg_css = self::compile_swatch_background_css( $hex_1, $hex_2, $split, $final_img_url );
 
 			$result[ $opt_val ] = array(
-				'name'        => $name,
-				'slug'        => $slug,
-				'bg_css'      => $bg_css,
-				'tooltip'     => $tooltip,
-				'has_stock'   => $has_stock,
-				'restock_eta' => $restock_eta,
-				'price_html'  => $price_html,
+				'name'            => $name,
+				'slug'            => $slug,
+				'bg_css'          => $bg_css,
+				'is_image_swatch' => $is_image_swatch,
+				'tooltip'         => $tooltip,
+				'has_stock'       => $has_stock,
+				'restock_eta'     => $restock_eta,
+				'price_html'      => $price_html,
 			);
 		}
 
@@ -419,7 +526,7 @@ class CUX_PDP_Renderer {
 	 * @param string $hex_1   Primary hex color.
 	 * @param string $hex_2   Secondary hex color.
 	 * @param string $split   Split or finish style.
-	 * @param string $img_url Optional texture image URL.
+	 * @param string $img_url Optional texture or variation image URL.
 	 * @return string
 	 */
 	public static function compile_swatch_background_css( string $hex_1, string $hex_2, string $split, string $img_url = '' ): string {
@@ -458,7 +565,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 3. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
+	 * 5. Inject Deduplicated Visual Gallery & Availability JSON payload before Variations Form.
 	 */
 	public static function render_pdp_json_payload(): void {
 		global $product;
@@ -466,7 +573,7 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$product_id = $product->get_id();
+		$product_id = (int) $product->get_id();
 		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
 
 		if ( empty( $cache ) && class_exists( 'CUX_Stock_Calculator' ) ) {
@@ -536,7 +643,8 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 4. Render Universal WooCommerce Delivery Method Cards (Synced with WC Shipping Zones, Methods & Classes).
+	 * 6. Render Configurable Delivery Switcher (Option 6A Stacked Rows, Option 6B Segmented Tabs, Option 6C 2-Col Cards)
+	 *    Synced with WooCommerce Shipping Zones, Methods & Shipping Classes.
 	 */
 	public static function render_delivery_and_low_stock_block(): void {
 		global $product;
@@ -544,7 +652,7 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$product_id = $product->get_id();
+		$product_id = (int) $product->get_id();
 		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 
 		if ( ( $config['enable_delivery_block'] ?? 'yes' ) !== 'yes' ) {
@@ -556,54 +664,123 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
+		$layout_style   = $config['delivery_layout_style'] ?? 'stacked_rows_6a';
 		$heading        = ! empty( $config['delivery_heading_label'] ) ? $config['delivery_heading_label'] : __( 'Delivery Method', 'commerce-ux-studio' );
+		$active_card    = $cards[0];
 		$active_rate_id = '';
-		foreach ( $cards as $c ) {
+
+		foreach ( $cards as $idx => $c ) {
 			if ( ! empty( $c['is_active'] ) ) {
 				$active_rate_id = $c['rate_id'];
+				$active_card    = $c;
 				break;
 			}
 		}
 		if ( empty( $active_rate_id ) && ! empty( $cards[0]['rate_id'] ) ) {
 			$active_rate_id        = $cards[0]['rate_id'];
 			$cards[0]['is_active'] = true;
+			$active_card           = $cards[0];
 		}
 		?>
-		<div class="cux-fulfilment-wrapper" id="cux-fulfilment-block">
+		<div class="cux-fulfilment-wrapper cux-delivery-layout-<?php echo esc_attr( $layout_style ); ?>" id="cux-fulfilment-block" data-layout="<?php echo esc_attr( $layout_style ); ?>">
 			<div class="cux-fulfilment-header">
 				<strong><?php echo esc_html( $heading ); ?></strong>
 			</div>
 
 			<input type="hidden" name="cux_chosen_rate_id" id="cux-chosen-rate-id" value="<?php echo esc_attr( $active_rate_id ); ?>" />
 
-			<div class="cux-delivery-cards-grid">
-				<?php foreach ( $cards as $card ) : ?>
-					<label class="cux-delivery-card <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
-						data-method="<?php echo esc_attr( $card['type'] ); ?>"
-						data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>">
-						<input type="radio"
-							name="cux_delivery_method"
-							value="<?php echo esc_attr( $card['rate_id'] ); ?>"
+			<?php if ( 'tabs_pill_6b' === $layout_style ) : ?>
+				<!-- OPTION 6B: COMPACT 2-TAB SEGMENTED SWITCHER PILL + LIVE SUMMARY LINE -->
+				<div class="cux-delivery-tabs-pill" role="tablist">
+					<?php foreach ( $cards as $card ) : ?>
+						<button type="button"
+							class="cux-delivery-card cux-delivery-tab-btn <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
+							data-method="<?php echo esc_attr( $card['type'] ); ?>"
 							data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>"
-							<?php checked( ! empty( $card['is_active'] ), true ); ?> />
-
-						<div class="cux-delivery-card-top">
-							<span class="cux-delivery-title"><?php echo esc_html( $card['title'] ); ?></span>
+							data-lead="<?php echo esc_attr( $card['lead_time'] ); ?>"
+							data-sub-html="<?php echo esc_attr( $card['subtitle_html'] ); ?>">
+							<input type="radio"
+								name="cux_delivery_method"
+								value="<?php echo esc_attr( $card['rate_id'] ); ?>"
+								<?php checked( ! empty( $card['is_active'] ), true ); ?>
+								style="display:none;" />
+							<span class="cux-tab-btn-title"><?php echo esc_html( $card['title'] ); ?></span>
 							<?php if ( ! empty( $card['lead_time'] ) ) : ?>
-								<span class="cux-delivery-lead"><?php echo esc_html( $card['lead_time'] ); ?></span>
+								<span class="cux-tab-btn-lead"><?php echo esc_html( $card['lead_time'] ); ?></span>
 							<?php endif; ?>
-						</div>
+						</button>
+					<?php endforeach; ?>
+				</div>
+				<div class="cux-delivery-tab-summary" id="cux-delivery-tab-summary">
+					<span class="cux-status-dot is-available"></span>
+					<span class="cux-tab-summary-text"><?php echo wp_kses_post( $active_card['subtitle_html'] ); ?></span>
+				</div>
 
-						<div class="cux-delivery-card-sub"
-							<?php echo 'pickup' === $card['type'] ? 'id="cux-pickup-status-line" data-default-subtitle="' . esc_attr( $card['subtitle_plain'] ) . '"' : ''; ?>>
-							<span class="cux-status-dot is-available"></span>
-							<span class="<?php echo 'pickup' === $card['type'] ? 'cux-pickup-mode-text' : 'cux-home-mode-text'; ?>">
-								<?php echo wp_kses_post( $card['subtitle_html'] ); ?>
-							</span>
-						</div>
-					</label>
-				<?php endforeach; ?>
-			</div>
+			<?php elseif ( 'cards_2col_6c' === $layout_style ) : ?>
+				<!-- OPTION 6C: REFINED 2-COLUMN CARDS (FULL-WIDTH TITLE ON TOP + LEAD TIME & PRICE ON BOTTOM) -->
+				<div class="cux-delivery-cards-grid cux-grid-2col-refined">
+					<?php foreach ( $cards as $card ) : ?>
+						<label class="cux-delivery-card <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
+							data-method="<?php echo esc_attr( $card['type'] ); ?>"
+							data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>">
+							<input type="radio"
+								name="cux_delivery_method"
+								value="<?php echo esc_attr( $card['rate_id'] ); ?>"
+								data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>"
+								<?php checked( ! empty( $card['is_active'] ), true ); ?> />
+
+							<div class="cux-card-6c-title-row">
+								<span class="cux-radio-dot-ui"></span>
+								<span class="cux-delivery-title"><?php echo esc_html( $card['title'] ); ?></span>
+							</div>
+
+							<div class="cux-card-6c-meta-row"
+								<?php echo 'pickup' === $card['type'] ? 'id="cux-pickup-status-line" data-default-subtitle="' . esc_attr( $card['subtitle_plain'] ) . '"' : ''; ?>>
+								<?php if ( ! empty( $card['lead_time'] ) ) : ?>
+									<span class="cux-delivery-lead"><?php echo esc_html( $card['lead_time'] ); ?></span>
+								<?php endif; ?>
+								<span class="cux-card-6c-sub <?php echo 'pickup' === $card['type'] ? 'cux-pickup-mode-text' : 'cux-home-mode-text'; ?>">
+									<?php echo wp_kses_post( $card['subtitle_html'] ); ?>
+								</span>
+							</div>
+						</label>
+					<?php endforeach; ?>
+				</div>
+
+			<?php else : ?>
+				<!-- OPTION 6A (DEFAULT): FULL-WIDTH STACKED HORIZONTAL RADIO ROWS (NO WRAPPING) -->
+				<div class="cux-delivery-stacked-list">
+					<?php foreach ( $cards as $card ) : ?>
+						<label class="cux-delivery-card cux-delivery-row-item <?php echo ! empty( $card['is_active'] ) ? 'is-active' : ''; ?>"
+							data-method="<?php echo esc_attr( $card['type'] ); ?>"
+							data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>">
+							<input type="radio"
+								name="cux_delivery_method"
+								value="<?php echo esc_attr( $card['rate_id'] ); ?>"
+								data-rate-id="<?php echo esc_attr( $card['rate_id'] ); ?>"
+								<?php checked( ! empty( $card['is_active'] ), true ); ?> />
+
+							<div class="cux-row-left">
+								<span class="cux-radio-dot-ui"></span>
+								<div class="cux-row-titles">
+									<span class="cux-delivery-title"><?php echo esc_html( $card['title'] ); ?></span>
+									<span class="cux-row-sub <?php echo 'pickup' === $card['type'] ? 'cux-pickup-mode-text' : 'cux-home-mode-text'; ?>"
+										<?php echo 'pickup' === $card['type'] ? 'id="cux-pickup-status-line" data-default-subtitle="' . esc_attr( $card['subtitle_plain'] ) . '"' : ''; ?>>
+										<span class="cux-status-dot is-available"></span>
+										<?php echo wp_kses_post( $card['subtitle_html'] ); ?>
+									</span>
+								</div>
+							</div>
+
+							<?php if ( ! empty( $card['lead_time'] ) ) : ?>
+								<div class="cux-row-right">
+									<span class="cux-delivery-lead"><?php echo esc_html( $card['lead_time'] ); ?></span>
+								</div>
+							<?php endif; ?>
+						</label>
+					<?php endforeach; ?>
+				</div>
+			<?php endif; ?>
 
 			<div class="cux-stock-alert-banner" id="cux-stock-alert-banner" style="display:none;">
 				<span class="cux-stock-alert-dot"></span>
@@ -789,7 +966,6 @@ class CUX_PDP_Renderer {
 			$methods_map = array();
 		}
 
-		// Fallback: inspect configured zones in order if the initial package didn't match an active zone.
 		if ( empty( $methods_map ) ) {
 			try {
 				$all_zones = WC_Shipping_Zones::get_zones();
@@ -905,7 +1081,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 5A. When a customer adds a product to the cart, save their selected Delivery Method card into the WooCommerce Shipping Session.
+	 * 7A. When a customer adds a product to the cart, save their selected Delivery Method into the WooCommerce Shipping Session.
 	 */
 	public static function sync_chosen_delivery_method_to_wc_session(): void {
 		if ( ! function_exists( 'WC' ) || ! isset( WC()->session ) || ! is_object( WC()->session ) ) {
@@ -919,7 +1095,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 5B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Card is clicked.
+	 * 7B. AJAX Handler: Immediately update WooCommerce `chosen_shipping_methods` session when a Delivery Option is clicked.
 	 */
 	public static function ajax_set_shipping_method(): void {
 		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
@@ -933,7 +1109,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 6. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
+	 * 8. Render the In-Page "Complete Your Ride" Cross-Sell Configurator (Powered by Native WooCommerce Cross-Sells).
 	 */
 	public static function render_complete_your_ride_block(): void {
 		global $product;
@@ -941,7 +1117,7 @@ class CUX_PDP_Renderer {
 			return;
 		}
 
-		$product_id = $product->get_id();
+		$product_id = (int) $product->get_id();
 		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 
 		if ( ( $config['enable_complete_ride'] ?? 'yes' ) !== 'yes' ) {
@@ -971,10 +1147,12 @@ class CUX_PDP_Renderer {
 		if ( empty( $items ) ) {
 			return;
 		}
+
+		$heading = ! empty( $config['cross_sell_heading'] ) ? $config['cross_sell_heading'] : __( 'Complete Your Ride', 'commerce-ux-studio' );
 		?>
 		<div class="cux-complete-ride-box" id="cux-complete-your-ride">
 			<div class="cux-cr-header">
-				<h4><?php esc_html_e( 'Complete Your Ride', 'commerce-ux-studio' ); ?></h4>
+				<h4><?php echo esc_html( $heading ); ?></h4>
 				<span class="cux-cr-toggle-icon">&mdash;</span>
 			</div>
 
@@ -1082,6 +1260,44 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
+	 * 9. Render the Centered Size Guide Lightbox Modal in the Footer (Executes Flatsome `[block id="..."]` shortcodes).
+	 */
+	public static function render_size_guide_modal(): void {
+		if ( ! function_exists( 'is_product' ) || ! is_product() ) {
+			return;
+		}
+
+		$product_id = (int) get_the_ID();
+		if ( $product_id <= 0 ) {
+			return;
+		}
+
+		$size_guide = CUX_Inheritance_Engine::resolve_size_guide_block( $product_id );
+		if ( empty( $size_guide['shortcode'] ) ) {
+			return;
+		}
+
+		$rendered_content = do_shortcode( $size_guide['shortcode'] );
+		if ( empty( trim( $rendered_content ) ) ) {
+			return;
+		}
+		?>
+		<div id="cux-size-guide-modal" class="cux-modal-overlay" style="display:none;" aria-hidden="true">
+			<div class="cux-modal-backdrop"></div>
+			<div class="cux-modal-dialog" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Size Guide', 'commerce-ux-studio' ); ?>">
+				<div class="cux-modal-header">
+					<h3><?php esc_html_e( 'Size & Geometry Guide', 'commerce-ux-studio' ); ?></h3>
+					<button type="button" class="cux-modal-close" aria-label="<?php esc_attr_e( 'Close Size Guide', 'commerce-ux-studio' ); ?>">&times;</button>
+				</div>
+				<div class="cux-modal-body">
+					<?php echo $rendered_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Build quick variation pills for a Variable Cross-Sell product.
 	 *
 	 * @param WC_Product $cs_prod Cross-sell variable product.
@@ -1110,7 +1326,7 @@ class CUX_PDP_Renderer {
 	}
 
 	/**
-	 * 7. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
+	 * 10. AJAX Quick Add to Cart handler for Complete Your Ride & Catalog Quick-Add Size Pills.
 	 */
 	public static function ajax_quick_add_to_cart(): void {
 		check_ajax_referer( 'cux_frontend_nonce', 'nonce' );
