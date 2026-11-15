@@ -1,6 +1,6 @@
 <?php
 /**
- * Global Product Attributes & Attribute Term Custom Fields.
+ * Global Product Attributes & Attribute Term Custom Fields (v2.3.2).
  *
  * File Path: includes/admin/class-cux-attribute-fields.php
  *
@@ -11,6 +11,7 @@
  *    Custom Swatch Texture Image Uploader, Tooltip, and a live preview column in the terms list table.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -72,10 +73,11 @@ class CUX_Attribute_Fields {
 		<div class="form-field">
 			<label for="cux_swatch_type"><?php esc_html_e( 'Frontend Swatch Style', 'commerce-ux-studio' ); ?></label>
 			<select name="cux_swatch_type" id="cux_swatch_type">
-				<option value="color_circle"><?php esc_html_e( 'Color Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
-				<option value="size_box"><?php esc_html_e( 'Square / Pill Button Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
+				<option value="color_circle"><?php esc_html_e( 'Colour Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
+				<option value="auto_variation_image"><?php esc_html_e( 'Variation Image (Auto-use Variation Primary Photo 52x52px)', 'commerce-ux-studio' ); ?></option>
+				<option value="term_image"><?php esc_html_e( 'Custom Attribute Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ); ?></option>
+				<option value="text_box"><?php esc_html_e( 'Text Button / Pill Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
 				<option value="radio_card"><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price)', 'commerce-ux-studio' ); ?></option>
-				<option value="variation_image"><?php esc_html_e( 'Auto Variation Thumbnail Swatch', 'commerce-ux-studio' ); ?></option>
 				<option value="dropdown"><?php esc_html_e( 'Standard Dropdown Select', 'commerce-ux-studio' ); ?></option>
 			</select>
 		</div>
@@ -87,8 +89,13 @@ class CUX_Attribute_Fields {
 	 */
 	public static function render_edit_attribute_fields(): void {
 		$attr_id = isset( $_GET['edit'] ) ? absint( $_GET['edit'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$role    = get_option( "cux_attr_role_{$attr_id}", 'visual_primary' );
-		$type    = get_option( "cux_swatch_type_{$attr_id}", 'color_circle' );
+		$role    = (string) get_option( "cux_attr_role_{$attr_id}", 'visual_primary' );
+		$type    = (string) get_option( "cux_swatch_type_{$attr_id}", 'color_circle' );
+		if ( 'size_box' === $type ) {
+			$type = 'text_box';
+		} elseif ( 'variation_image' === $type ) {
+			$type = 'auto_variation_image';
+		}
 		?>
 		<tr class="form-field">
 			<th scope="row" valign="top">
@@ -109,10 +116,11 @@ class CUX_Attribute_Fields {
 			</th>
 			<td>
 				<select name="cux_swatch_type" id="cux_swatch_type">
-					<option value="color_circle" <?php selected( $type, 'color_circle' ); ?>><?php esc_html_e( 'Color Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
-					<option value="size_box" <?php selected( $type, 'size_box' ); ?>><?php esc_html_e( 'Square / Pill Button Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
+					<option value="color_circle" <?php selected( $type, 'color_circle' ); ?>><?php esc_html_e( 'Colour Circle (Solid, Dual-Color Split, Gradient, Metallic, or Texture Image)', 'commerce-ux-studio' ); ?></option>
+					<option value="auto_variation_image" <?php selected( $type, 'auto_variation_image' ); ?>><?php esc_html_e( 'Variation Image (Auto-use Variation Primary Photo 52x52px)', 'commerce-ux-studio' ); ?></option>
+					<option value="term_image" <?php selected( $type, 'term_image' ); ?>><?php esc_html_e( 'Custom Attribute Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ); ?></option>
+					<option value="text_box" <?php selected( $type, 'text_box' ); ?>><?php esc_html_e( 'Text Button / Pill Box (Ideal for Frame & Apparel Sizes)', 'commerce-ux-studio' ); ?></option>
 					<option value="radio_card" <?php selected( $type, 'radio_card' ); ?>><?php esc_html_e( 'Rich Spec Radio Card (Shows Stock, Backorder ETA & Price)', 'commerce-ux-studio' ); ?></option>
-					<option value="variation_image" <?php selected( $type, 'variation_image' ); ?>><?php esc_html_e( 'Auto Variation Thumbnail Swatch', 'commerce-ux-studio' ); ?></option>
 					<option value="dropdown" <?php selected( $type, 'dropdown' ); ?>><?php esc_html_e( 'Standard Dropdown Select', 'commerce-ux-studio' ); ?></option>
 				</select>
 			</td>
@@ -127,12 +135,16 @@ class CUX_Attribute_Fields {
 	 * @param array $data     Attribute data.
 	 * @param mixed $old_slug Optional old attribute slug.
 	 */
-	public static function save_attribute_fields( int $attr_id, array $data, $old_slug = '' ): void {
+	public static function save_attribute_fields( $attr_id, $data = array(), $old_slug = '' ): void {
+		$attr_id = (int) $attr_id;
+		if ( $attr_id <= 0 ) {
+			return;
+		}
 		if ( isset( $_POST['cux_attr_role'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_option( "cux_attr_role_{$attr_id}", sanitize_key( wp_unslash( $_POST['cux_attr_role'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_option( "cux_attr_role_{$attr_id}", sanitize_key( wp_unslash( (string) $_POST['cux_attr_role'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_swatch_type'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_option( "cux_swatch_type_{$attr_id}", sanitize_key( wp_unslash( $_POST['cux_swatch_type'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_option( "cux_swatch_type_{$attr_id}", sanitize_key( wp_unslash( (string) $_POST['cux_swatch_type'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 	}
 
@@ -213,13 +225,17 @@ class CUX_Attribute_Fields {
 	 * @param WP_Term $term     Current term object.
 	 * @param string  $taxonomy Current taxonomy slug.
 	 */
-	public static function render_edit_term_fields( WP_Term $term, string $taxonomy ): void {
-		$hex_1   = (string) get_term_meta( $term->term_id, '_cux_hex_primary', true );
-		$hex_2   = (string) get_term_meta( $term->term_id, '_cux_hex_secondary', true );
-		$split   = (string) get_term_meta( $term->term_id, '_cux_split_style', true );
-		$img_id  = (int) get_term_meta( $term->term_id, '_cux_swatch_image_id', true );
+	public static function render_edit_term_fields( $term, $taxonomy = '' ): void {
+		if ( ! is_object( $term ) || empty( $term->term_id ) ) {
+			return;
+		}
+		$term_id = (int) $term->term_id;
+		$hex_1   = (string) get_term_meta( $term_id, '_cux_hex_primary', true );
+		$hex_2   = (string) get_term_meta( $term_id, '_cux_hex_secondary', true );
+		$split   = (string) get_term_meta( $term_id, '_cux_split_style', true );
+		$img_id  = (int) get_term_meta( $term_id, '_cux_swatch_image_id', true );
 		$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
-		$tooltip = (string) get_term_meta( $term->term_id, '_cux_term_tooltip', true );
+		$tooltip = (string) get_term_meta( $term_id, '_cux_term_tooltip', true );
 		if ( empty( $split ) ) {
 			$split = 'horizontal';
 		}
@@ -313,25 +329,26 @@ class CUX_Attribute_Fields {
 	 *
 	 * @param int $term_id Term ID.
 	 */
-	public static function save_term_fields( int $term_id ): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+	public static function save_term_fields( $term_id ): void {
+		$term_id = (int) $term_id;
+		if ( $term_id <= 0 || ! current_user_can( 'manage_woocommerce' ) ) {
 			return;
 		}
 
 		if ( isset( $_POST['cux_hex_primary'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_hex_primary', sanitize_hex_color( wp_unslash( $_POST['cux_hex_primary'] ) ) ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_hex_primary', sanitize_hex_color( wp_unslash( (string) $_POST['cux_hex_primary'] ) ) ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_hex_secondary'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_hex_secondary', sanitize_hex_color( wp_unslash( $_POST['cux_hex_secondary'] ) ) ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_hex_secondary', sanitize_hex_color( wp_unslash( (string) $_POST['cux_hex_secondary'] ) ) ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_split_style'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_split_style', sanitize_key( wp_unslash( $_POST['cux_split_style'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_split_style', sanitize_key( wp_unslash( (string) $_POST['cux_split_style'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_swatch_image_id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			update_term_meta( $term_id, '_cux_swatch_image_id', absint( $_POST['cux_swatch_image_id'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_term_tooltip'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_term_tooltip', sanitize_text_field( wp_unslash( $_POST['cux_term_tooltip'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_term_tooltip', sanitize_text_field( wp_unslash( (string) $_POST['cux_term_tooltip'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 	}
 
@@ -341,7 +358,10 @@ class CUX_Attribute_Fields {
 	 * @param array $columns Existing columns.
 	 * @return array
 	 */
-	public static function add_term_preview_column( array $columns ): array {
+	public static function add_term_preview_column( $columns ): array {
+		if ( ! is_array( $columns ) ) {
+			return array();
+		}
 		$new_columns = array();
 		foreach ( $columns as $key => $label ) {
 			if ( 'name' === $key ) {
@@ -360,11 +380,12 @@ class CUX_Attribute_Fields {
 	 * @param int    $term_id     Term ID.
 	 * @return string
 	 */
-	public static function render_term_preview_column( string $content, string $column_name, int $term_id ): string {
-		if ( 'cux_swatch_preview' !== $column_name ) {
-			return $content;
+	public static function render_term_preview_column( $content, $column_name, $term_id ): string {
+		if ( 'cux_swatch_preview' !== (string) $column_name ) {
+			return (string) $content;
 		}
 
+		$term_id = (int) $term_id;
 		$img_id  = (int) get_term_meta( $term_id, '_cux_swatch_image_id', true );
 		$img_url = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'thumbnail' ) : '';
 		if ( $img_url ) {
