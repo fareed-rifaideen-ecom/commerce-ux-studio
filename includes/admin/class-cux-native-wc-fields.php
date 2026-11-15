@@ -5,8 +5,11 @@
  * File Path: includes/admin/class-cux-native-wc-fields.php
  *
  * Places simple, beginner-friendly inputs directly inside standard WooCommerce tabs:
- * 1. General Tab: Card Spec Subtitle, Auto-Synced WooCommerce Brand / Tagline Override,
- *    Shop Card Corner Badges (Award Winning / DISC), Monthly Financing & Flatsome UX Block Size Guide Picker.
+ * 1. General Tab:
+ *    - Per-Product Visual Swatch Display Override (Inherit, Variation Image, Term Image, Colour Circle, or Text Button)
+ *    - Per-Product Gallery Isolation Override (Strict Selected Variation Only vs. Colorway Group)
+ *    - Card Spec Subtitle, Auto-Synced WooCommerce Brand / Tagline Override,
+ *      Shop Card Corner Badges (Award Winning / DISC), Monthly Financing & Flatsome UX Block Size Guide Picker.
  * 2. Inventory Tab: "Lock Main Image" checkbox (prevents stock autopilot from changing launch hero image).
  * 3. Variations Tab: Friendly Autopilot banner + simple In-Store Pickup Status & Backorder Date per variation.
  * 4. Quick Edit & Native WooCommerce CSV Importer mapping.
@@ -54,7 +57,7 @@ class CUX_Native_WC_Fields {
 	}
 
 	/**
-	 * 1. Render simple Card, Brand Sync & Size Guide fields inside WooCommerce's native "General" tab.
+	 * 1. Render Per-Product Swatch Display Mode, Gallery Isolation, Card, Brand Sync & Size Guide fields inside WooCommerce's "General" tab.
 	 */
 	public static function render_general_tab_fields(): void {
 		global $post;
@@ -65,12 +68,14 @@ class CUX_Native_WC_Fields {
 			: array( 'name' => '' );
 
 		$saved_size_guide = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
+		$swatch_override  = (string) get_post_meta( $product_id, '_cux_product_swatch_mode', true );
+		$gallery_override = (string) get_post_meta( $product_id, '_cux_pdp_gallery_isolation', true );
 		$ux_blocks        = self::get_published_ux_blocks();
 		?>
 		<div class="options_group" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
 			<div style="padding: 10px 12px 4px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
 				<strong style="color: #0f172a; font-size: 13px;">
-					<?php esc_html_e( 'Commerce UX Studio — Shop Card, Brand Sync & Size Guide Details', 'commerce-ux-studio' ); ?>
+					<?php esc_html_e( 'Commerce UX Studio — Variation Display, Brand Sync, Card & Size Guide Details', 'commerce-ux-studio' ); ?>
 				</strong>
 				<?php if ( ! empty( $brand_info['name'] ) ) : ?>
 					<span style="background: #dcfce7; color: #166534; font-size: 11.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px;">
@@ -91,6 +96,38 @@ class CUX_Native_WC_Fields {
 
 			<?php
 			wp_nonce_field( 'cux_native_wc_meta_action', 'cux_native_wc_meta_nonce' );
+
+			woocommerce_wp_select(
+				array(
+					'id'          => '_cux_product_swatch_mode',
+					'label'       => __( 'Colour / Visual Attribute Display', 'commerce-ux-studio' ),
+					'value'       => ! empty( $swatch_override ) ? $swatch_override : 'inherit',
+					'desc_tip'    => true,
+					'description' => __( 'Choose whether this product’s visual attribute (e.g. Colour / Finish) renders as a Variation Image tile, Custom Term Image, Colour Circle, or Text Button.', 'commerce-ux-studio' ),
+					'options'     => array(
+						'inherit'              => __( 'Follow Store / Attribute Default (Tab 1)', 'commerce-ux-studio' ),
+						'auto_variation_image' => __( 'Variation Image — Auto-use Variation Primary Photo (52×52px Tile)', 'commerce-ux-studio' ),
+						'term_image'           => __( 'Custom Attribute Image — Uploaded Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ),
+						'color_circle'         => __( 'Colour / Split / Gradient Circle (38×38px Swatch)', 'commerce-ux-studio' ),
+						'text_box'             => __( 'Text Button / Pill Box (Shows Attribute Value Text)', 'commerce-ux-studio' ),
+					),
+				)
+			);
+
+			woocommerce_wp_select(
+				array(
+					'id'          => '_cux_pdp_gallery_isolation',
+					'label'       => __( 'Product Page Gallery Mode', 'commerce-ux-studio' ),
+					'value'       => ! empty( $gallery_override ) ? $gallery_override : 'inherit',
+					'desc_tip'    => true,
+					'description' => __( 'Strict Selected Variation Only ensures the image gallery shows ONLY the selected variation’s image(s) and hides other variations.', 'commerce-ux-studio' ),
+					'options'     => array(
+						'inherit'          => __( 'Follow Store Default (Tab 1 / Tab 2)', 'commerce-ux-studio' ),
+						'strict_variation' => __( 'Strict Selected Variation Only (Show ONLY the selected variation’s images)', 'commerce-ux-studio' ),
+						'colorway_group'   => __( 'Colorway Group Gallery (Share extra gallery angles across sizes of the selected colour)', 'commerce-ux-studio' ),
+					),
+				)
+			);
 
 			woocommerce_wp_text_input(
 				array(
@@ -247,6 +284,8 @@ class CUX_Native_WC_Fields {
 		}
 
 		$text_fields = array(
+			'_cux_product_swatch_mode',
+			'_cux_pdp_gallery_isolation',
 			'_cux_spec_subtitle',
 			'_cux_badge_tl',
 			'_cux_badge_tr',
