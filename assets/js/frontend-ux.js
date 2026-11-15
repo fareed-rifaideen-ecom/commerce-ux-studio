@@ -1,8 +1,8 @@
 /*!
- * Commerce UX Studio - Frontend Interactive Controller (v2.3 Universal Configurable Edition)
+ * Commerce UX Studio - Frontend Interactive Controller (v2.3.2 Universal Configurable Edition)
  *
  * File Path: assets/js/frontend-ux.js
- * Version:   2.3.0
+ * Version:   2.3.2
  * Author:    Fareed M. Rifaideen
  * Website:   https://fareed-rifaideen.netlify.app/
  * LinkedIn:  https://www.linkedin.com/in/fareed03/
@@ -12,7 +12,7 @@
  * 1. Shop & Category Card Swatch Image Swap + Hover Back-Image Sync + Deep-Link URL Updater
  * 2. Style C Catalog Quick-Add Size Buttons (AJAX Add to Cart + Mini-Cart Fragment Refresh)
  * 3. Single Product Swatches (Option 4A Checkmark Badge & Option 4B Border + Dot Contrast States)
- * 4. Flatsome Flickity Slider Bridge (Zero-JS Initial Load + Dimensional Size Bypass)
+ * 4. Flatsome Flickity Slider Bridge (Strict Single-Variation Gallery Isolation + Counter Pill)
  * 5. Multi-Layout Delivery Switcher (Option 6A Stacked Rows, 6B Segmented Tabs, 6C 2-Col Cards) + WC Session Sync
  * 6. Smart Size Guide Lightbox Modal ([block id="..."] UX Block Popup)
  * 7. In-Page "Complete Your Ride" Cross-Sell Configurator & Floating Product Comparison Modal
@@ -86,6 +86,48 @@
 					}
 				});
 			}
+		});
+
+		/* ======================================================================
+		   2. STYLE C CATALOG QUICK-ADD SIZE PILL CLICK -> AJAX ADD TO CART
+		   ====================================================================== */
+		$(document).on('click', '.cux-zara-size-pill', function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			const $pill = $(this);
+			const productId = $pill.data('product-id');
+			const variationId = $pill.data('variation-id');
+			const origLabel = $pill.text();
+
+			if (!productId || !variationId || $pill.prop('disabled')) {
+				return;
+			}
+
+			$pill.prop('disabled', true).text('...');
+
+			$.post(i18n.ajaxUrl, {
+				action: 'cux_quick_add_to_cart',
+				nonce: i18n.nonce,
+				product_id: productId,
+				variation_id: variationId,
+				quantity: 1
+			}).done(function (res) {
+				$pill.text('✓');
+				if (res && res.fragments) {
+					$.each(res.fragments, function (key, value) {
+						$(key).replaceWith(value);
+					});
+					$(document.body).trigger('added_to_cart', [res.fragments, res.cart_hash, $pill]);
+				} else {
+					$(document.body).trigger('wc_fragment_refresh');
+				}
+				setTimeout(function () {
+					$pill.prop('disabled', false).text(origLabel);
+				}, 1400);
+			}).fail(function () {
+				$pill.prop('disabled', false).text(origLabel);
+			});
 		});
 
 		/* ======================================================================
