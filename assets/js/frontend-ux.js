@@ -1,38 +1,42 @@
-/**
- * Commerce UX Studio - Frontend Interactive Controller (Flatsome & WooCommerce 11.3+)
+/*!
+ * Commerce UX Studio - Frontend Interactive Controller (v2.3 Universal Configurable Edition)
  *
  * File Path: assets/js/frontend-ux.js
+ * Version:   2.3.0
  * Author:    Fareed M. Rifaideen
  * Website:   https://fareed-rifaideen.netlify.app/
  * LinkedIn:  https://www.linkedin.com/in/fareed03/
  * GitHub:    https://github.com/fareed-rifaideen-ecom
  *
  * Powers:
- * 1. Shop & Category Card Swatch Image Swap + Deep-Link URL Updater
- * 2. Zara-Style Catalog Quick-Add Size Buttons (AJAX Add to Cart + Mini-Cart Refresh)
- * 3. Single Product Swatches (Color Circles, Size Boxes, Rich Spec Radio Cards)
+ * 1. Shop & Category Card Swatch Image Swap + Hover Back-Image Sync + Deep-Link URL Updater
+ * 2. Style C Catalog Quick-Add Size Buttons (AJAX Add to Cart + Mini-Cart Fragment Refresh)
+ * 3. Single Product Swatches (Option 4A Checkmark Badge & Option 4B Border + Dot Contrast States)
  * 4. Flatsome Flickity Slider Bridge (Zero-JS Initial Load + Dimensional Size Bypass)
- * 5. Omnichannel Delivery Method Switcher & Live Low-Stock / Pickup Status Updates
- * 6. In-Page "Complete Your Ride" Cross-Sell Drawer & AJAX Add to Cart
- * 7. Floating Side-by-Side Product Comparison Bar & Modal
+ * 5. Multi-Layout Delivery Switcher (Option 6A Stacked Rows, 6B Segmented Tabs, 6C 2-Col Cards) + WC Session Sync
+ * 6. Smart Size Guide Lightbox Modal ([block id="..."] UX Block Popup)
+ * 7. In-Page "Complete Your Ride" Cross-Sell Configurator & Floating Product Comparison Modal
  */
 (function ($) {
 	'use strict';
 
 	$(function () {
-		const i18n = window.cuxFrontendVars || {
-			ajaxUrl: '/wp-admin/admin-ajax.php',
-			nonce: '',
-			i18nChooseOpts: 'Choose Options',
-			i18nAddToCart: 'Add to Cart',
-			i18nOutOfStock: 'Out of Stock',
-			i18nAdded: 'Added to Cart',
-			i18nLowStock: 'Low Stock',
-			i18nInStock: 'In Stock'
+		const rawCfg = window.cuxFrontendVars || window.cuxFrontendConfig || {};
+		const nestedI18n = rawCfg.i18n || {};
+
+		const i18n = {
+			ajaxUrl: rawCfg.ajaxUrl || '/wp-admin/admin-ajax.php',
+			nonce: rawCfg.nonce || '',
+			i18nChooseOpts: rawCfg.i18nChooseOpts || nestedI18n.chooseOptions || 'Choose Options',
+			i18nAddToCart: rawCfg.i18nAddToCart || nestedI18n.addToCart || 'Add to Cart',
+			i18nOutOfStock: rawCfg.i18nOutOfStock || nestedI18n.outOfStock || 'Out of Stock',
+			i18nAdded: rawCfg.i18nAdded || nestedI18n.added || 'Added to Cart',
+			i18nLowStock: rawCfg.i18nLowStock || nestedI18n.lowStock || 'Low Stock',
+			i18nInStock: rawCfg.i18nInStock || nestedI18n.inStock || 'In Stock'
 		};
 
 		/* ======================================================================
-		   1. SHOP & CATEGORY CARD SWATCH CLICK -> SWAP IMAGE & DEEP LINK
+		   1. SHOP & CATEGORY CARD SWATCH CLICK -> SWAP IMAGE, HOVER & DEEP LINK
 		   ====================================================================== */
 		$(document).on('click', '.cux-card-swatch-dot', function (e) {
 			e.preventDefault();
@@ -43,19 +47,20 @@
 			const imgSrc = $dot.data('img-src');
 			const hoverSrc = $dot.data('hover-src');
 			const deepLink = $dot.data('deep-link');
+			const colorSlug = $dot.data('color-slug');
 
-			$dot.siblings('.cux-card-swatch-dot').removeClass('is-active');
+			$dot.closest('.cux-card-swatches').find('.cux-card-swatch-dot').removeClass('is-active');
 			$dot.addClass('is-active');
 
 			if (imgSrc) {
-				const $mainImg = $card.find('.box-image img').first();
+				const $mainImg = $card.find('.box-image img:not(.back-image)').first();
 				if ($mainImg.length) {
 					$mainImg.attr('src', imgSrc).removeAttr('srcset').removeAttr('sizes');
 				}
 			}
 
 			if (hoverSrc) {
-				const $hoverImg = $card.find('.box-image .show-on-hover img, .box-image img.back-image').first();
+				const $hoverImg = $card.find('.box-image img.back-image, .box-image .show-on-hover img').first();
 				if ($hoverImg.length) {
 					$hoverImg.attr('src', hoverSrc).removeAttr('srcset').removeAttr('sizes');
 				}
@@ -67,10 +72,23 @@
 				const targetUrl = cleanBase + deepLink;
 				$card.find('.box-image a, .product-title a, a.woocommerce-LoopProduct-link').attr('href', targetUrl);
 			}
+
+			// Filter Style C Quick-Add size pills to match the clicked color if present.
+			const $sizePills = $card.find('.cux-zara-size-pill');
+			if ($sizePills.length && colorSlug) {
+				$sizePills.each(function () {
+					const pillColor = $(this).data('color-slug');
+					if (!pillColor || pillColor === colorSlug) {
+						$(this).show();
+					} else {
+						$(this).hide();
+					}
+				});
+			}
 		});
 
 		/* ======================================================================
-		   2. ZARA-STYLE CATALOG QUICK-ADD SIZE PILLS
+		   2. STYLE C CATALOG QUICK-ADD SIZE PILLS (AJAX ADD TO CART)
 		   ====================================================================== */
 		$(document).on('click', '.cux-zara-size-pill', function (e) {
 			e.preventDefault();
@@ -114,7 +132,7 @@
 		/* ======================================================================
 		   3. SINGLE PRODUCT PAGE (PDP): SWATCHES & FLATSOME FLICKITY BRIDGE
 		   ====================================================================== */
-		const $jsonNode = $('#cux-pdp-json-data');
+		const $jsonNode = $('#cux-pdp-json-data, #cux-pdp-data').first();
 		let pdpData = null;
 		let activeVisualHash = '';
 
@@ -160,8 +178,9 @@
 				const role = $(this).data('role');
 				if (role === 'visual_primary' || role === 'visual_secondary') {
 					const $sel = $(this).find('.cux-swatch-item.is-selected');
-					if ($sel.length && $sel.data('slug')) {
-						parts.push($sel.data('slug'));
+					const slug = $sel.data('slug') || $sel.data('value');
+					if ($sel.length && slug) {
+						parts.push(slug);
 					}
 				}
 			});
@@ -240,6 +259,7 @@
 			updateGalleryCounter(0, slides.length);
 		}
 
+		// Handle Swatch Selection & Active Contrast Toggle (Option 4A Checkmark / Option 4B Border + Dot).
 		$(document).on('click', '.cux-swatch-item', function (e) {
 			e.preventDefault();
 			const $btn = $(this);
@@ -248,13 +268,23 @@
 			}
 
 			const $wrap = $btn.closest('.cux-swatch-control-wrap');
+			const $itemsContainer = $wrap.find('.cux-swatch-items');
 			const role = $wrap.data('role');
 			const val = $btn.data('value');
-			const name = $btn.data('name');
-			const slug = $btn.data('slug');
+			const name = $btn.data('name') || $btn.data('label') || val;
+			const slug = $btn.data('slug') || val;
 
-			$wrap.find('.cux-swatch-item').removeClass('is-selected').attr('aria-checked', 'false');
-			$btn.addClass('is-selected').attr('aria-checked', 'true');
+			$itemsContainer.addClass('has-selection');
+			$wrap.find('.cux-swatch-item')
+				.removeClass('is-selected')
+				.addClass('is-deselected')
+				.attr('aria-checked', 'false');
+
+			$btn
+				.addClass('is-selected')
+				.removeClass('is-deselected')
+				.attr('aria-checked', 'true');
+
 			$wrap.find('.cux-selected-term-label').text(name);
 
 			const $select = $wrap.find('select').first();
@@ -268,18 +298,37 @@
 			}
 		});
 
+		// Handle WooCommerce "Clear" link click to reset active/deselected swatch states cleanly.
+		$(document).on('click', '.reset_variations', function () {
+			$('.cux-swatch-control-wrap').each(function () {
+				const $wrap = $(this);
+				$wrap.find('.cux-swatch-items').removeClass('has-selection');
+				$wrap.find('.cux-swatch-item')
+					.removeClass('is-selected is-deselected')
+					.attr('aria-checked', 'false');
+				$wrap.find('.cux-selected-term-label').text(i18n.i18nChooseOpts);
+			});
+		});
+
 		/* ======================================================================
-		   4. OMNICHANNEL DELIVERY SWITCHER & LIVE VARIATION STATUS UPDATES
+		   4. MULTI-LAYOUT DELIVERY SWITCHER (6A ROWS / 6B TABS / 6C CARDS)
 		   ====================================================================== */
 		$(document).on('click', '.cux-delivery-card', function () {
 			const $card = $(this);
 			const rateId = $card.data('rate-id') || '';
+			const subHtml = $card.data('sub-html') || '';
 
 			$('.cux-delivery-card').removeClass('is-active');
 			$card.addClass('is-active');
 			$card.find('input[type="radio"]').prop('checked', true);
 
 			$('#cux-chosen-rate-id').val(rateId);
+
+			// Update live summary bar when Option 6B (Segmented 2-Tab Pill) is active.
+			const $tabSummary = $('#cux-delivery-tab-summary');
+			if ($tabSummary.length && subHtml) {
+				$tabSummary.find('.cux-tab-summary-text').html(subHtml);
+			}
 
 			if (rateId && i18n.ajaxUrl) {
 				$.post(i18n.ajaxUrl, {
@@ -307,18 +356,16 @@
 
 				if ($pickupLine.length) {
 					const $dot = $pickupLine.find('.cux-status-dot');
-					const $txt = $pickupLine.find('.cux-pickup-mode-text');
 					const defaultSub = $pickupLine.data('default-subtitle') || 'Available for store pickup';
 
 					if (meta.pickup_status === 'ready_today') {
 						$dot.removeClass('is-unavailable').addClass('is-available');
-						$txt.html('<strong>Get it today</strong> &bull; In Stock at Showroom');
+						$pickupLine.html('<span class="cux-status-dot is-available"></span> <strong>Get it today</strong> &bull; In Stock at Showroom');
 					} else if (meta.pickup_status === 'unavailable') {
 						$dot.removeClass('is-available').addClass('is-unavailable');
-						$txt.text('Currently unavailable for In-Store Pickup');
+						$pickupLine.html('<span class="cux-status-dot is-unavailable"></span> Currently unavailable for In-Store Pickup');
 					} else {
-						$dot.removeClass('is-unavailable').addClass('is-available');
-						$txt.text(defaultSub);
+						$pickupLine.html('<span class="cux-status-dot is-available"></span> ' + defaultSub);
 					}
 				}
 
@@ -356,19 +403,40 @@
 			}
 		});
 
+		/* ======================================================================
+		   5. SMART SIZE GUIDE LIGHTBOX MODAL ([block id="..."] UX BLOCK POPUP)
+		   ====================================================================== */
 		$(document).on('click', '.cux-size-guide-trigger', function (e) {
 			e.preventDefault();
-			const target = $(this).data('size-guide');
+			const $modal = $('#cux-size-guide-modal');
+			if ($modal.length) {
+				$modal.fadeIn(180).attr('aria-hidden', 'false');
+				return;
+			}
+
+			const target = $(this).data('size-guide') || $(this).data('guide');
 			const $existingLightbox = $('a[href="#' + target + '"], a[href*="' + target + '"]').not(this).first();
 			if ($existingLightbox.length) {
 				$existingLightbox.trigger('click');
-			} else if ($('#' + target).length) {
+			} else if (target && $('#' + target).length) {
 				$('html, body').animate({ scrollTop: $('#' + target).offset().top - 80 }, 350);
 			}
 		});
 
+		$(document).on('click', '.cux-modal-close, .cux-modal-backdrop', function (e) {
+			e.preventDefault();
+			$('#cux-size-guide-modal').fadeOut(150).attr('aria-hidden', 'true');
+		});
+
+		$(document).on('keydown', function (e) {
+			if (e.key === 'Escape') {
+				$('#cux-size-guide-modal').fadeOut(150).attr('aria-hidden', 'true');
+				$('#cux-compare-modal').fadeOut(150);
+			}
+		});
+
 		/* ======================================================================
-		   5. IN-PAGE "COMPLETE YOUR RIDE" CROSS-SELL CONFIGURATOR
+		   6. IN-PAGE "COMPLETE YOUR RIDE" CROSS-SELL CONFIGURATOR
 		   ====================================================================== */
 		$(document).on('click', '.cux-cr-header', function () {
 			const $box = $(this).closest('.cux-complete-ride-box');
@@ -470,7 +538,7 @@
 		});
 
 		/* ======================================================================
-		   6. FLOATING PRODUCT COMPARE BAR & SIDE-BY-SIDE MODAL
+		   7. FLOATING PRODUCT COMPARE BAR & SIDE-BY-SIDE MODAL
 		   ====================================================================== */
 		let compareList = [];
 
