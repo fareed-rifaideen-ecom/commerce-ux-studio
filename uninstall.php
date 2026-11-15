@@ -1,11 +1,14 @@
 <?php
 /**
- * Safe Uninstall Handler for Commerce UX Studio.
+ * Safe Uninstall Handler for Commerce UX Studio (v2.3.2).
+ *
+ * File Path: uninstall.php
  *
  * By default, preserves custom tables and product gallery metadata on plugin deletion
  * so accidental uninstalls or Git re-installs never wipe store data.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -15,7 +18,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 $settings = get_option( 'cux_global_settings', array() );
 
 // Only drop tables and options if the admin explicitly enabled full data wipe on uninstall.
-if ( ! empty( $settings['delete_data_on_uninstall'] ) && 'yes' === $settings['delete_data_on_uninstall'] ) {
+if ( is_array( $settings ) && ! empty( $settings['delete_data_on_uninstall'] ) && 'yes' === $settings['delete_data_on_uninstall'] ) {
 	global $wpdb;
 
 	$rules_table = $wpdb->prefix . 'cux_rules_presets';
