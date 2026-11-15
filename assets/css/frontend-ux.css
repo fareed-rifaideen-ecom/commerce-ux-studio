@@ -14,9 +14,11 @@ Desktop Sticky Product Gallery (body.cux-sticky-gallery-enabled)
 
 Synced WooCommerce Brand Headers (Option 1A Eyebrow & Option 1B Breadcrumb Pill)
 
-Swatches: 48x48px Variation Photo Tiles, Color Circles, Size Boxes & Spec Radio Cards
+Swatches: 52x52px Variation Photo Tiles, 40x40px Colour Circles, Text Button Boxes & Spec Cards
 
 Active Swatch Contrast Modes (Option 4A Corner Checkmark ✓ & Option 4B Framed Border + Bottom Dot)
+
+Cross-Attribute Availability Filtering (.is-oos-in-combo Diagonal Strike-Through & Smart-Switch States)
 
 Delivery Switcher Layouts (Option 6A Stacked Rows, Option 6B Segmented Tabs, Option 6C 2-Column Cards)
 
@@ -334,6 +336,10 @@ body.cux-sticky-gallery-enabled .product-gallery {
 
 }
 
+.product-thumbnails.cux-single-image-hidden {
+display: none !important;
+}
+
 /* Option 1A: Clickable Brand Eyebrow Above Title */
 .cux-pdp-brand-eyebrow {
 margin: 0 0 4px;
@@ -388,7 +394,7 @@ line-height: 1.4;
 }
 
 /* ==========================================================================
-3. SINGLE PRODUCT VARIATION SWATCHES (4A CHECKMARK & 4B BORDER+DOT MODES)
+3. SINGLE PRODUCT VARIATION SWATCHES (IMAGE / COLOUR / TEXT + AVAILABILITY)
 ========================================================================== */
 
 form.variations_form table.variations {
@@ -551,7 +557,7 @@ background: var(--cux-primary);
 pointer-events: none;
 }
 
-/* Swatch Type 1A: Color / Gradient Circles (38x38px) */
+/* Swatch Type 1A: Colour / Gradient Circles (40x40px) */
 .cux-swatch-style-color_circle button.cux-swatch-item {
 width: 40px !important;
 height: 40px !important;
@@ -572,13 +578,13 @@ justify-content: center;
 overflow: visible !important;
 }
 
-/* Swatch Type 1B: Auto Variation Product Photo Tiles (48x48px Rounded Square) */
+/* Swatch Type 1B: Variation Image / Custom Term Image Tiles (52x52px Rounded Square) */
 .cux-swatch-style-variation_image button.cux-swatch-item,
 .cux-swatch-style-color_circle button.cux-swatch-item.is-image-tile {
-width: 50px !important;
-height: 50px !important;
-min-width: 50px !important;
-min-height: 50px !important;
+width: 52px !important;
+height: 52px !important;
+min-width: 52px !important;
+min-height: 52px !important;
 padding: 3px !important;
 border-radius: 8px !important;
 border: 2px solid #cbd5e1 !important;
@@ -609,7 +615,7 @@ background-size: cover !important;
 background-position: center !important;
 }
 
-/* Unselected vs Selected Visual Differentiation on Color & Image Swatches */
+/* Unselected vs Selected Visual Differentiation on Colour & Image Swatches */
 .cux-swatch-items.has-selection button.cux-swatch-item.is-deselected {
 opacity: 0.72;
 }
@@ -627,7 +633,7 @@ border-color: var(--cux-primary) !important;
 box-shadow: 0 0 0 1.5px var(--cux-primary) !important;
 }
 
-/* Swatch Type 2: Size Pill / Box Buttons */
+/* Swatch Type 2: Text Button / Size Pill Box */
 .cux-swatch-style-size_box button.cux-swatch-item {
 min-width: 58px !important;
 min-height: 42px !important;
@@ -773,24 +779,34 @@ background: #f1f5f9;
 color: #64748b;
 }
 
-/* Out-of-Stock Swatch States */
-button.cux-swatch-item.is-out-of-stock {
-opacity: 0.45 !important;
+/* Cross-Attribute Unavailable (.is-oos-in-combo) & Out-of-Stock (.is-out-of-stock) States */
+button.cux-swatch-item.is-out-of-stock,
+button.cux-swatch-item.is-oos-in-combo {
+opacity: 0.36 !important;
+border-style: dashed !important;
 }
 
-button.cux-swatch-item.is-out-of-stock::after {
+button.cux-swatch-item.is-out-of-stock::after,
+button.cux-swatch-item.is-oos-in-combo::after {
 content: "";
 position: absolute;
 top: 50%;
-left: 10%;
-right: 10%;
-height: 1.5px;
+left: 8%;
+right: 8%;
+height: 2px;
 background: #dc2626;
 transform: rotate(-28deg);
 pointer-events: none;
+z-index: 5;
 }
 
-button.cux-swatch-item.is-disabled {
+.cux-swatch-control-wrap[data-cross-oos-mode="smart_switch"] button.cux-swatch-item.is-oos-in-combo:hover {
+opacity: 0.75 !important;
+border-color: #64748b !important;
+}
+
+button.cux-swatch-item.is-disabled,
+button.cux-swatch-item.is-cross-locked {
 cursor: not-allowed !important;
 }
 
