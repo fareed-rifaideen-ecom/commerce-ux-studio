@@ -1,14 +1,17 @@
 <?php
 /**
- * 4-Tier Configuration & Layout Inheritance Engine.
+ * 4-Tier Configuration, Brand Sync & Layout Inheritance Engine (v2.3 Universal Edition).
+ *
+ * File Path: includes/rules/class-cux-inheritance-engine.php
  *
  * Priority Order:
  * Tier 1 (Highest): Single Product Metabox Override (_cux_product_overrides)
  * Tier 2:           Conditional Rule Engine Match ({prefix}cux_rules_presets where rule_type = 'rule')
- * Tier 3:           Category / Tag Taxonomy Override (_cux_cat_preset_id, _cux_cat_fulfilment, _cux_tag_atmosphere)
+ * Tier 3:           Category / Tag Taxonomy Override (_cux_cat_card_preset, _cux_cat_fulfilment, _cux_tag_atmosphere)
  * Tier 4 (Base):    Global Store Settings (cux_global_settings)
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,21 +23,28 @@ class CUX_Inheritance_Engine {
 	/**
 	 * Runtime static memory cache per request.
 	 *
-	 * @var array
+	 * @var array<int, array<string, mixed>>
 	 */
 	private static $resolved_cache = array();
 
 	/**
 	 * Cached global settings.
 	 *
-	 * @var array|null
+	 * @var array<string, mixed>|null
 	 */
 	private static $global_settings = null;
 
 	/**
-	 * Get all Global Store Settings merged with safe defaults.
+	 * Runtime cache for resolved product brand data.
 	 *
-	 * @return array
+	 * @var array<int, array<string, string>>
+	 */
+	private static $brand_cache = array();
+
+	/**
+	 * Get all Global Store Settings merged with safe v2.3 defaults.
+	 *
+	 * @return array<string, mixed>
 	 */
 	public static function get_global_settings(): array {
 		if ( null !== self::$global_settings ) {
@@ -42,7 +52,22 @@ class CUX_Inheritance_Engine {
 		}
 
 		$defaults = array(
+			// Tab 1: Store Look & Feel + Multi-Option UI/UX Selectors.
+			'catalog_card_preset'         => 'specialized_spec',
+			'catalog_hover_mode'          => 'angle_2',
+			'oos_swatch_behavior'         => 'clickable_preview',
+			'catalog_max_swatches'        => 4,
+			'mobile_gallery_layout'       => 'floating_right',
+			'show_slide_counter'          => 'yes',
+			'brand_sync_display'          => 'eyebrow_1a',       // eyebrow_1a | breadcrumb_1b | cards_schema_1c
+			'pdp_header_meta_mode'        => 'subtitle_only_2a', // subtitle_only_2a | cards_only_2b
+			'swatch_active_style'         => 'checkmark_4a',     // checkmark_4a | border_dot_4b
+			'visual_swatch_mode'          => 'hybrid_auto',      // hybrid_auto | variation_photo | color_circle
+			'sticky_desktop_gallery'      => 'yes',              // yes | no
+
+			// Tab 2: Smart Stock & Gallery Autopilot.
 			'stock_calc_mode'             => 'grouped_color',
+			'auto_copy_color_gallery'     => 'yes',
 			'primary_visual_attr'         => 'pa_color',
 			'secondary_visual_attrs'      => array( 'pa_groupset', 'pa_wheelset', 'pa_spec' ),
 			'dimensional_attrs'           => array( 'pa_size', 'pa_frame-size' ),
@@ -50,30 +75,50 @@ class CUX_Inheritance_Engine {
 			'include_backorders'          => 'yes',
 			'zero_stock_behavior'         => 'freeze_last',
 			'parent_gallery_mode'         => 'winner_plus_colors',
-			'catalog_hover_mode'          => 'angle_2',
-			'catalog_card_preset'         => 'specialized_spec',
-			'catalog_max_swatches'        => 4,
-			'oos_swatch_behavior'         => 'clickable_preview',
 			'auto_select_winner'          => 'yes',
-			'mobile_gallery_layout'       => 'floating_right',
-			'show_slide_counter'          => 'yes',
+
+			// Tab 3: Delivery Box, Shipping Sync, Size Guide & Cross-Sells.
 			'enable_delivery_block'       => 'yes',
+			'wc_shipping_sync_mode'       => 'auto_wc',
+			'delivery_layout_style'       => 'stacked_rows_6a',  // stacked_rows_6a | tabs_pill_6b | cards_2col_6c
+			'delivery_heading_label'      => 'Delivery Method',
+			'home_card_title'             => 'Standard Delivery',
+			'pickup_card_title'           => 'In-Store Pickup',
+			'pickup_card_subtitle'        => 'Available for store pickup',
 			'default_home_lead'           => '4-7 days',
-			'default_home_cost'           => '$75.00',
+			'default_home_cost'           => '',
 			'default_pickup_lead'         => '6-10 days',
 			'default_low_stock_limit'     => 2,
+			'default_size_guide'          => '',
 			'enable_complete_ride'        => 'yes',
+			'cross_sell_heading'          => 'Complete Your Ride',
+
+			// Developer & SEO Schema Options.
 			'enable_product_group_schema' => 'yes',
 			'enable_deep_link_ssr'        => 'yes',
 			'trigger_on_order'            => 'yes',
 			'trigger_on_admin_save'       => 'yes',
 			'trigger_on_csv_import'       => 'yes',
-			'trigger_on_odoo_webhook'     => 'yes',
+			'trigger_on_rest_webhook'     => 'yes',
 		);
 
 		$saved = get_option( 'cux_global_settings', array() );
 		if ( ! is_array( $saved ) ) {
 			$saved = array();
+		}
+
+		// Bridge any legacy keys saved in `cux_studio_settings` so settings never get out of sync.
+		$legacy = get_option( 'cux_studio_settings', array() );
+		if ( is_array( $legacy ) && ! empty( $legacy ) ) {
+			if ( empty( $saved['catalog_card_preset'] ) && ! empty( $legacy['card_preset'] ) ) {
+				$saved['catalog_card_preset'] = $legacy['card_preset'];
+			}
+			if ( empty( $saved['catalog_hover_mode'] ) && ! empty( $legacy['shop_hover_mode'] ) ) {
+				$saved['catalog_hover_mode'] = $legacy['shop_hover_mode'];
+			}
+			if ( empty( $saved['oos_swatch_behavior'] ) && ! empty( $legacy['oos_swatch_mode'] ) ) {
+				$saved['oos_swatch_behavior'] = $legacy['oos_swatch_mode'];
+			}
 		}
 
 		self::$global_settings = wp_parse_args( $saved, $defaults );
@@ -86,13 +131,14 @@ class CUX_Inheritance_Engine {
 	public static function flush_runtime_cache(): void {
 		self::$global_settings = null;
 		self::$resolved_cache  = array();
+		self::$brand_cache     = array();
 	}
 
 	/**
 	 * Resolve effective configuration for a specific Product ID across all 4 tiers.
 	 *
 	 * @param int $product_id Parent product ID.
-	 * @return array Resolved configuration array.
+	 * @return array<string, mixed> Resolved configuration array.
 	 */
 	public static function resolve_product_config( int $product_id ): array {
 		if ( isset( self::$resolved_cache[ $product_id ] ) ) {
@@ -125,10 +171,109 @@ class CUX_Inheritance_Engine {
 	}
 
 	/**
+	 * Resolve Native WooCommerce Brand (`product_brand` or fallback brand taxonomies) for a product.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return array{name: string, slug: string, url: string, logo_url: string}
+	 */
+	public static function resolve_product_brand( int $product_id ): array {
+		if ( isset( self::$brand_cache[ $product_id ] ) ) {
+			return self::$brand_cache[ $product_id ];
+		}
+
+		$brand_data = array(
+			'name'     => '',
+			'slug'     => '',
+			'url'      => '',
+			'logo_url' => '',
+		);
+
+		if ( $product_id <= 0 ) {
+			return $brand_data;
+		}
+
+		$taxonomies = array( 'product_brand', 'pa_brand', 'pwb-brand', 'yith_product_brand' );
+		foreach ( $taxonomies as $tax ) {
+			if ( ! taxonomy_exists( $tax ) ) {
+				continue;
+			}
+
+			$terms = wp_get_post_terms( $product_id, $tax );
+			if ( ! is_wp_error( $terms ) && ! empty( $terms[0] ) && is_object( $terms[0] ) ) {
+				$term      = $terms[0];
+				$term_link = get_term_link( $term );
+				$thumb_id  = (int) get_term_meta( $term->term_id, 'thumbnail_id', true );
+				if ( $thumb_id <= 0 ) {
+					$thumb_id = (int) get_term_meta( $term->term_id, 'brand_image_id', true );
+				}
+				$logo_url = $thumb_id > 0 ? (string) wp_get_attachment_image_url( $thumb_id, 'medium' ) : '';
+
+				$brand_data = array(
+					'name'     => (string) $term->name,
+					'slug'     => (string) $term->slug,
+					'url'      => ! is_wp_error( $term_link ) ? (string) $term_link : '',
+					'logo_url' => $logo_url,
+				);
+				break;
+			}
+		}
+
+		self::$brand_cache[ $product_id ] = $brand_data;
+		return $brand_data;
+	}
+
+	/**
+	 * Normalize any Size Guide input (full `[block id="..."]` shortcode, UX Block slug, or post ID)
+	 * into a clean identifier and rendered HTML for the Size Guide Lightbox Modal.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return array{slug: string, shortcode: string}
+	 */
+	public static function resolve_size_guide_block( int $product_id ): array {
+		$raw = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
+		if ( '' === trim( $raw ) ) {
+			$config = self::resolve_product_config( $product_id );
+			$raw    = (string) ( $config['size_guide_id'] ?? ( $config['default_size_guide'] ?? '' ) );
+		}
+
+		$raw = trim( $raw );
+		if ( '' === $raw ) {
+			return array(
+				'slug'      => '',
+				'shortcode' => '',
+			);
+		}
+
+		// Case 1: Admin pasted a full or partial Flatsome shortcode like [block id="specialized-helmet-sizing-chart"].
+		if ( preg_match( '/id=["\']?([^"\'\]]+)["\']?/i', $raw, $matches ) ) {
+			$extracted = sanitize_text_field( $matches[1] );
+			return array(
+				'slug'      => $extracted,
+				'shortcode' => '[block id="' . esc_attr( $extracted ) . '"]',
+			);
+		}
+
+		// Case 2: Admin entered another full shortcode.
+		if ( 0 === strpos( $raw, '[' ) && substr( $raw, -1 ) === ']' ) {
+			return array(
+				'slug'      => sanitize_title( $raw ),
+				'shortcode' => $raw,
+			);
+		}
+
+		// Case 3: Admin entered a clean UX Block slug or numeric ID.
+		$clean_slug = sanitize_text_field( $raw );
+		return array(
+			'slug'      => $clean_slug,
+			'shortcode' => '[block id="' . esc_attr( $clean_slug ) . '"]',
+		);
+	}
+
+	/**
 	 * Get Tier 3 Category and Tag overrides for a product.
 	 *
 	 * @param int $product_id Product ID.
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	private static function get_taxonomy_overrides( int $product_id ): array {
 		$overrides = array();
@@ -147,8 +292,8 @@ class CUX_Inheritance_Engine {
 					$overrides['catalog_hover_mode'] = $hover_mode;
 				}
 
-				$size_guide = (int) get_term_meta( $cat_id, '_cux_cat_size_guide_id', true );
-				if ( $size_guide > 0 ) {
+				$size_guide = (string) get_term_meta( $cat_id, '_cux_cat_size_guide_id', true );
+				if ( '' !== trim( $size_guide ) ) {
 					$overrides['size_guide_id'] = $size_guide;
 				}
 
@@ -182,7 +327,7 @@ class CUX_Inheritance_Engine {
 	 * Evaluate Tier 2 Conditional Rules stored in {prefix}cux_rules_presets.
 	 *
 	 * @param int $product_id Product ID.
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	private static function get_matching_rule_overrides( int $product_id ): array {
 		global $wpdb;
@@ -215,8 +360,8 @@ class CUX_Inheritance_Engine {
 	/**
 	 * Evaluate a rule's condition group against a product.
 	 *
-	 * @param int   $product_id Product ID.
-	 * @param array $conditions Condition group definition.
+	 * @param int                  $product_id Product ID.
+	 * @param array<string, mixed> $conditions Condition group definition.
 	 * @return bool
 	 */
 	private static function evaluate_conditions( int $product_id, array $conditions ): bool {
@@ -249,7 +394,7 @@ class CUX_Inheritance_Engine {
 					break;
 
 				case 'price':
-					$price = (float) get_post_meta( $product_id, '_price', true );
+					$price  = (float) get_post_meta( $product_id, '_price', true );
 					$target = (float) $value;
 					if ( 'greater_than' === $operator ) {
 						$passed = $price > $target;
@@ -279,9 +424,9 @@ class CUX_Inheritance_Engine {
 	/**
 	 * Merge override values only when they are not empty or set to 'inherit'.
 	 *
-	 * @param array $base      Base array.
-	 * @param array $overrides Override array.
-	 * @return array
+	 * @param array<string, mixed> $base      Base array.
+	 * @param array<string, mixed> $overrides Override array.
+	 * @return array<string, mixed>
 	 */
 	private static function merge_non_empty( array $base, array $overrides ): array {
 		foreach ( $overrides as $key => $value ) {
