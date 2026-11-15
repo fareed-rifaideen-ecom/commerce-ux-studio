@@ -1,8 +1,20 @@
 <?php
 /**
- * Flatsome Shop & Category Card Renderer (Style A, B, C + Hover Image & Brand Sync - v2.3.0)
+ * Flatsome Shop & Category Archive Card Renderer (v2.3.1 Universal Configurable Edition).
  *
  * File Path: includes/frontend/class-cux-catalog-cards.php
+ *
+ * Responsibilities:
+ * 1. Connects to `CUX_Inheritance_Engine::resolve_product_config()` so switching between
+ *    Style A (Technical Spec), Style B (Minimalist Showroom), and Style C (Apparel Quick-Add)
+ *    in Tab 1 immediately updates Shop & Category cards.
+ * 2. Fixes the Flatsome `.box-image` overlay hook (`flatsome_woocommerce_shop_loop_images`)
+ *    so Style B overlaid swatches and Style C Quick-Add bars stay strictly inside the image
+ *    frame and never overlap the product price (`﷼ ● 5`).
+ * 3. Injects the dynamic Hover Image ID (`angle_2` or `second_color`) into
+ *    `woocommerce_product_get_gallery_image_ids` so Flatsome's native "Back Image - Fade In"
+ *    hover works automatically on every variable product.
+ * 4. Syncs Native WooCommerce Brands (`product_brand`) and Variation Image Swatches onto Shop Cards.
  *
  * @package Commerce_UX_Studio
  * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
@@ -15,353 +27,464 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CUX_Catalog_Cards {
 
 	/**
-	 * Recursion guard for catalog gallery hover filter.
+	 * Guard flag to prevent recursion when filtering gallery image IDs on shop archives.
 	 *
-	 * @var bool
+	 * @var array<int, bool>
 	 */
-	private static $in_hover_filter = false;
+	private static $filtering_gallery = array();
 
 	/**
-	 * Register catalog hooks.
+	 * Initialize WooCommerce & Flatsome shop loop hooks.
 	 */
 	public static function init(): void {
-		// Inject hover image ID for Flatsome's "Back Image - Fade In" on Shop/Category archives.
-		add_filter( 'woocommerce_product_get_gallery_image_ids', array( __CLASS__, 'inject_catalog_hover_gallery_id' ), 20, 2 );
+		// 1. Add preset, swatch contrast & hover classes to each product card in the catalog loop.
+		add_filter( 'woocommerce_post_class', array( __CLASS__, 'add_catalog_card_classes' ), 20, 2 );
 
-		// Render corner badges & Style B overlaid swatches inside Flatsome's .box-image container.
-		add_action( 'flatsome_woocommerce_shop_loop_images', array( __CLASS__, 'render_card_image_overlays' ), 25 );
+		// 2. Dynamically feed the Hover Image ID (2nd Angle or 2nd Color) into Flatsome's "Back Image - Fade In".
+		add_filter( 'woocommerce_product_get_gallery_image_ids', array( __CLASS__, 'filter_catalog_hover_gallery_ids' ), 20, 2 );
 
-		// Render Brand, Spec Subtitle, Swatch Row (Style A & C) in their own dedicated full-width block below price.
-		add_action( 'woocommerce_after_shop_loop_item', array( __CLASS__, 'render_card_footer_block' ), 15 );
+		// 3. Render Badges, Style B Overlaid Swatches & Style C Quick-Add Size Bar strictly inside Flatsome's `.box-image`.
+		add_action( 'init', array( __CLASS__, 'register_image_overlay_hook' ), 20 );
 
-		// Floating Compare Bar in footer on shop/category pages.
-		add_action( 'wp_footer', array( __CLASS__, 'render_floating_compare_drawer' ), 35 );
+		// 4. Render Synced WooCommerce Brand Eyebrow & Swatch + Compare Row above the card title (outside `.price-wrapper`).
+		add_action( 'woocommerce_shop_loop_item_title', array( __CLASS__, 'render_before_card_title_elements' ), 2 );
+
+		// 5. Render Technical Spec Subtitle & Financing Note cleanly after the card price.
+		add_action( 'woocommerce_after_shop_loop_item', array( __CLASS__, 'render_after_card_price_meta' ), 5 );
+
+		// 6. Render Floating Side-by-Side Compare Bar & Modal in footer.
+		add_action( 'wp_footer', array( __CLASS__, 'render_floating_compare_bar' ), 30 );
 	}
 
 	/**
-	 * Ensure Flatsome's "Back Image - Fade In" always has a valid hover image ID on variable products.
+	 * Hook image overlays directly into Flatsome's `.box-image` container so absolute badges/swatches
+	 * never sink to the bottom of the card over the price.
+	 */
+	public static function register_image_overlay_hook(): void {
+		if ( has_action( 'flatsome_woocommerce_shop_loop_images' ) ) {
+			add_action( 'flatsome_woocommerce_shop_loop_images', array( __CLASS__, 'render_card_image_overlays' ), 25 );
+		} else {
+			add_action( 'woocommerce_before_shop_loop_item_title', array( __CLASS__, 'render_card_image_overlays' ), 15 );
+		}
+	}
+
+	/**
+	 * 1. Add Commerce UX Studio preset & contrast classes to each catalog product `<div class="product">`.
 	 *
-	 * @param array      $gallery_ids Existing gallery IDs.
+	 * @param array      $classes Existing post classes.
+	 * @param WC_Product $product Current product object.
+	 * @return array
+	 */
+	public static function add_catalog_card_classes( $classes, $product = null ): array {
+		$classes = is_array( $classes ) ? $classes : array();
+		if ( ! is_object( $product ) || ! method_exists( $product, 'get_id' ) ) {
+			return $classes;
+		}
+
+		// Only apply catalog card classes on archive/loop items (not the main single product wrapper).
+		if ( function_exists( 'is_product' ) && is_product() && (int) get_queried_object_id() === (int) $product->get_id() ) {
+			return $classes;
+		}
+
+		$product_id     = (int) $product->get_id();
+		$config         = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$preset_slug    = $config['catalog_card_preset'] ?? 'specialized_spec';
+		$hover_mode     = $config['catalog_hover_mode'] ?? 'angle_2';
+		$contrast_style = $config['swatch_active_style'] ?? 'checkmark_4a';
+		$swatch_mode    = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+
+		$classes[] = 'cux-card-enhanced';
+		$classes[] = 'cux-card-preset-' . sanitize_html_class( $preset_slug );
+		$classes[] = 'cux-card-hover-' . sanitize_html_class( $hover_mode );
+		$classes[] = 'cux-card-contrast-' . sanitize_html_class( $contrast_style );
+		$classes[] = 'cux-card-swatch-mode-' . sanitize_html_class( $swatch_mode );
+
+		return $classes;
+	}
+
+	/**
+	 * 2. Dynamically inject the Hover Image ID (`angle_2` or `second_color`) as the first gallery image ID
+	 *    on Shop & Category archives so Flatsome's native "Back Image - Fade In" works on every variable product.
+	 *
+	 * @param array      $gallery_ids Current gallery attachment IDs.
 	 * @param WC_Product $product     Product object.
 	 * @return array
 	 */
-	public static function inject_catalog_hover_gallery_id( $gallery_ids, $product ) {
-		if ( self::$in_hover_filter || is_admin() || ( function_exists( 'is_product' ) && is_product() ) ) {
-			return is_array( $gallery_ids ) ? $gallery_ids : array();
-		}
+	public static function filter_catalog_hover_gallery_ids( $gallery_ids, $product ): array {
+		$gallery_ids = is_array( $gallery_ids ) ? $gallery_ids : array();
 
-		if ( ! ( $product instanceof WC_Product ) || ! $product->is_type( 'variable' ) ) {
-			return is_array( $gallery_ids ) ? $gallery_ids : array();
-		}
-
-		$gallery_ids = is_array( $gallery_ids ) ? array_values( array_filter( array_map( 'absint', $gallery_ids ) ) ) : array();
-		if ( ! empty( $gallery_ids ) ) {
+		if ( is_admin() || ! is_object( $product ) || ! method_exists( $product, 'is_type' ) || ! $product->is_type( 'variable' ) ) {
 			return $gallery_ids;
 		}
 
-		self::$in_hover_filter = true;
-		$hover_id              = 0;
+		$product_id = (int) $product->get_id();
+
+		// Do not alter the main Single Product Page gallery here; this filter is strictly for Shop/Archive cards & Related loops.
+		if ( function_exists( 'is_product' ) && is_product() && (int) get_queried_object_id() === $product_id ) {
+			return $gallery_ids;
+		}
+
+		if ( ! empty( self::$filtering_gallery[ $product_id ] ) ) {
+			return $gallery_ids;
+		}
+
+		self::$filtering_gallery[ $product_id ] = true;
 
 		try {
-			$main_id  = (int) $product->get_image_id( 'edit' );
-			$children = $product->get_children();
+			$cache = self::get_or_build_card_cache( $product );
+			if ( ! empty( $cache ) ) {
+				$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+				$hover_mode = $config['catalog_hover_mode'] ?? 'angle_2';
+				$main_id    = (int) $product->get_image_id();
 
-			foreach ( $children as $child_id ) {
-				$extra_raw = (string) get_post_meta( (int) $child_id, '_product_image_gallery', true );
-				if ( '' === $extra_raw ) {
-					$extra_raw = (string) get_post_meta( (int) $child_id, '_wc_additional_variation_images', true );
-				}
-				if ( '' !== $extra_raw ) {
-					$parts = array_filter( array_map( 'absint', explode( ',', $extra_raw ) ) );
-					foreach ( $parts as $pid ) {
-						if ( $pid > 0 && $pid !== $main_id ) {
-							$hover_id = $pid;
-							break 2;
-						}
-					}
-				}
-			}
+				$hover_id = ( 'second_color' === $hover_mode )
+					? (int) ( $cache['hover_image_second_color'] ?? 0 )
+					: (int) ( $cache['hover_image_angle_2'] ?? 0 );
 
-			if ( $hover_id <= 0 ) {
-				foreach ( $children as $child_id ) {
-					$var_img = (int) get_post_thumbnail_id( (int) $child_id );
-					if ( $var_img > 0 && $var_img !== $main_id ) {
-						$hover_id = $var_img;
-						break;
-					}
+				if ( $hover_id <= 0 ) {
+					$hover_id = (int) ( $cache['hover_image_angle_2'] ?? ( $cache['hover_image_second_color'] ?? 0 ) );
+				}
+
+				if ( $hover_id > 0 && $hover_id !== $main_id ) {
+					array_unshift( $gallery_ids, $hover_id );
+					$gallery_ids = array_values( array_unique( array_filter( array_map( 'absint', $gallery_ids ) ) ) );
 				}
 			}
 		} catch ( \Throwable $e ) {
-			$hover_id = 0;
+			// Safe fallback.
 		}
 
-		self::$in_hover_filter = false;
-
-		if ( $hover_id > 0 ) {
-			return array( $hover_id );
-		}
-
+		unset( self::$filtering_gallery[ $product_id ] );
 		return $gallery_ids;
 	}
 
 	/**
-	 * Render Top-Left / Top-Right Badges and Style B Overlaid Swatches inside Flatsome's `.box-image`.
+	 * 3. Render Top-Left Badge ("Award Winning"), Top-Right Spec ("DISC"),
+	 *    Style B Overlaid Swatches, and Style C Quick-Add Size Pills inside Flatsome's `.box-image`.
 	 */
 	public static function render_card_image_overlays(): void {
 		global $product;
-		if ( ! ( $product instanceof WC_Product ) ) {
+		if ( ! is_object( $product ) ) {
 			return;
 		}
 
-		$product_id  = $product->get_id();
-		$config      = ( class_exists( 'CUX_Inheritance_Engine' ) && method_exists( 'CUX_Inheritance_Engine', 'resolve_product_config' ) )
-			? CUX_Inheritance_Engine::resolve_product_config( $product_id )
-			: array();
-		$preset      = $config['catalog_card_preset'] ?? 'specialized_spec';
-		$badge_left  = trim( (string) get_post_meta( $product_id, '_cux_badge_left', true ) );
-		$badge_right = trim( (string) get_post_meta( $product_id, '_cux_badge_right', true ) );
-
-		if ( '' === $badge_left && '' === $badge_right && 'pinarello_showroom' !== $preset && 'zara_quick_add' !== $preset ) {
-			return;
-		}
-
-		echo '<div class="cux-card-overlays" data-base-url="' . esc_url( $product->get_permalink() ) . '">';
-
-		if ( '' !== $badge_left ) {
-			echo '<span class="cux-card-badge-left">' . esc_html( $badge_left ) . '</span>';
-		}
-		if ( '' !== $badge_right ) {
-			echo '<span class="cux-card-badge-right">' . esc_html( $badge_right ) . '</span>';
-		}
-
-		if ( 'pinarello_showroom' === $preset && $product->is_type( 'variable' ) ) {
-			$swatches = self::get_card_color_swatches( $product, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
-			if ( ! empty( $swatches['items'] ) ) {
-				echo '<div class="cux-card-overlay-swatches">';
-				self::render_swatch_dots_list( $swatches );
-				echo '</div>';
-			}
-		}
-
-		if ( 'zara_quick_add' === $preset && $product->is_type( 'variable' ) ) {
-			$sizes = self::get_card_quick_add_sizes( $product );
-			if ( ! empty( $sizes ) ) {
-				echo '<div class="cux-zara-quick-bar">';
-				foreach ( $sizes as $sz ) {
-					printf(
-						'<button type="button" class="cux-zara-size-pill" data-product-id="%1$d" data-variation-id="%2$d">%3$s</button>',
-						(int) $product_id,
-						(int) $sz['variation_id'],
-						esc_html( $sz['label'] )
-					);
-				}
-				echo '</div>';
-			}
-		}
-
-		echo '</div>';
-	}
-
-	/**
-	 * Render isolated full-width footer block below price (prevents `﷼ ● 5` price collision).
-	 */
-	public static function render_card_footer_block(): void {
-		global $product;
-		if ( ! ( $product instanceof WC_Product ) ) {
-			return;
-		}
-
-		$product_id = $product->get_id();
-		$config     = ( class_exists( 'CUX_Inheritance_Engine' ) && method_exists( 'CUX_Inheritance_Engine', 'resolve_product_config' ) )
-			? CUX_Inheritance_Engine::resolve_product_config( $product_id )
-			: array();
+		$product_id = (int) $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 		$preset     = $config['catalog_card_preset'] ?? 'specialized_spec';
-		$subtitle   = trim( (string) get_post_meta( $product_id, '_cux_spec_subtitle', true ) );
-		$brand      = ( class_exists( 'CUX_Inheritance_Engine' ) && method_exists( 'CUX_Inheritance_Engine', 'resolve_product_brand' ) )
-			? CUX_Inheritance_Engine::resolve_product_brand( $product_id )
-			: array( 'name' => '', 'tagline' => '' );
 
-		echo '<div class="cux-card-meta-footer cux-preset-' . esc_attr( $preset ) . '" data-base-url="' . esc_url( $product->get_permalink() ) . '">';
-
-		if ( ! empty( $brand['tagline'] ) ) {
-			echo '<div class="cux-card-brand-line">' . esc_html( $brand['tagline'] ) . '</div>';
+		$badge_tl = (string) get_post_meta( $product_id, '_cux_badge_tl', true );
+		if ( '' === $badge_tl ) {
+			$badge_tl = (string) get_post_meta( $product_id, '_cux_badge_left', true );
+		}
+		if ( empty( $badge_tl ) && ! empty( $config['badge_tl'] ) ) {
+			$badge_tl = (string) $config['badge_tl'];
 		}
 
-		if ( '' !== $subtitle ) {
-			echo '<div class="cux-card-spec-subtitle">' . esc_html( $subtitle ) . '</div>';
+		$badge_tr = (string) get_post_meta( $product_id, '_cux_badge_tr', true );
+		if ( '' === $badge_tr ) {
+			$badge_tr = (string) get_post_meta( $product_id, '_cux_badge_right', true );
 		}
 
-		if ( 'pinarello_showroom' !== $preset && $product->is_type( 'variable' ) ) {
-			$swatches = self::get_card_color_swatches( $product, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
-			if ( ! empty( $swatches['items'] ) ) {
-				echo '<div class="cux-card-swatch-row">';
-				self::render_swatch_dots_list( $swatches );
-				echo '</div>';
-			}
-		}
+		$cache        = $product->is_type( 'variable' ) ? self::get_or_build_card_cache( $product ) : array();
+		$colors       = $cache['in_stock_colors'] ?? array();
+		$max_swatches = max( 1, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
+		$swatch_mode  = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+		?>
+		<div class="cux-card-overlays" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-base-url="<?php echo esc_url( get_permalink( $product_id ) ); ?>">
+			<?php if ( ! empty( $badge_tl ) ) : ?>
+				<span class="cux-card-badge-tl"><?php echo esc_html( $badge_tl ); ?></span>
+			<?php endif; ?>
 
-		if ( 'specialized_spec' === $preset ) {
-			$thumb_url = (string) wp_get_attachment_image_url( (int) $product->get_image_id(), 'woocommerce_thumbnail' );
-			?>
-			<label class="cux-card-compare-label">
-				<input type="checkbox"
-					class="cux-compare-checkbox"
-					value="<?php echo esc_attr( (string) $product_id ); ?>"
-					data-title="<?php echo esc_attr( $product->get_name() ); ?>"
-					data-price="<?php echo esc_attr( wp_strip_all_tags( $product->get_price_html() ) ); ?>"
-					data-subtitle="<?php echo esc_attr( $subtitle ); ?>"
-					data-img="<?php echo esc_url( $thumb_url ); ?>"
-					data-url="<?php echo esc_url( $product->get_permalink() ); ?>" />
-				<span><?php esc_html_e( 'Compare', 'commerce-ux-studio' ); ?></span>
-			</label>
+			<?php if ( ! empty( $badge_tr ) ) : ?>
+				<span class="cux-card-badge-tr"><?php echo esc_html( $badge_tr ); ?></span>
+			<?php endif; ?>
+
 			<?php
-		}
+			// Style B (Minimalist Showroom): Render Swatches overlaid inside the bottom-left corner of `.box-image`.
+			if ( 'pinarello_showroom' === $preset && ! empty( $colors ) ) :
+				self::render_swatch_dots_markup( $colors, $max_swatches, 'cux-card-swatches-overlaid', $swatch_mode );
+			endif;
 
-		echo '</div>';
+			// Style C (Apparel Quick-Add): Render Hover Size Selector Bar inside the bottom of `.box-image`.
+			if ( 'zara_quick_add' === $preset && $product->is_type( 'variable' ) ) :
+				$quick_sizes = self::get_in_stock_size_pills( $product, $cache );
+				if ( ! empty( $quick_sizes ) ) :
+					?>
+					<div class="cux-zara-quick-add-bar">
+						<span class="cux-zara-quick-title"><?php esc_html_e( 'Quick Add Size', 'commerce-ux-studio' ); ?></span>
+						<div class="cux-zara-size-list">
+							<?php foreach ( $quick_sizes as $sz ) : ?>
+								<button type="button"
+									class="cux-zara-size-pill"
+									data-product-id="<?php echo esc_attr( (string) $product_id ); ?>"
+									data-variation-id="<?php echo esc_attr( (string) $sz['var_id'] ); ?>"
+									data-color-slug="<?php echo esc_attr( $sz['color_slug'] ); ?>">
+									<?php echo esc_html( $sz['size_label'] ); ?>
+								</button>
+							<?php endforeach; ?>
+						</div>
+					</div>
+					<?php
+				endif;
+			endif;
+			?>
+		</div>
+		<?php
 	}
 
 	/**
-	 * Output swatch dots HTML and `+X` overflow badge (only when overflow > 0).
-	 *
-	 * @param array $swatches Swatch items and overflow count.
+	 * 4. Render Swatch Circles + Compare Checkbox (for Style A & Style C) and Synced WooCommerce Brand Eyebrow
+	 *    above the Product Title (outside Flatsome's `.price-wrapper` so swatches never collide with the price).
 	 */
-	private static function render_swatch_dots_list( array $swatches ): void {
-		foreach ( $swatches['items'] as $idx => $item ) {
-			printf(
-				'<button type="button" class="cux-card-swatch-dot %1$s" style="%2$s" data-img-src="%3$s" data-hover-src="%4$s" data-deep-link="%5$s" title="%6$s" aria-label="%6$s"></button>',
-				0 === $idx ? 'is-active' : '',
-				esc_attr( $item['bg_css'] ),
-				esc_url( $item['img_src'] ),
-				esc_url( $item['hover_src'] ),
-				esc_attr( $item['deep_link'] ),
-				esc_attr( $item['label'] )
+	public static function render_before_card_title_elements(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id   = (int) $product->get_id();
+		$config       = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$preset       = $config['catalog_card_preset'] ?? 'specialized_spec';
+		$max_swatches = max( 1, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
+		$swatch_mode  = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+
+		$cache  = $product->is_type( 'variable' ) ? self::get_or_build_card_cache( $product ) : array();
+		$colors = $cache['in_stock_colors'] ?? array();
+
+		// 4A. For Style A (Technical Spec) & Style C (Quick-Add): Render Swatch Row + Compare Checkbox above title.
+		if ( 'pinarello_showroom' !== $preset && ( ! empty( $colors ) || 'specialized_spec' === $preset ) ) :
+			$thumb_url = wp_get_attachment_image_url( $product->get_image_id(), 'woocommerce_thumbnail' );
+			?>
+			<div class="cux-card-swatch-compare-row" data-base-url="<?php echo esc_url( get_permalink( $product_id ) ); ?>">
+				<div class="cux-card-swatches-left">
+					<?php
+					if ( ! empty( $colors ) ) {
+						self::render_swatch_dots_markup( $colors, $max_swatches, 'cux-card-swatches-inline', $swatch_mode );
+					}
+					?>
+				</div>
+
+				<?php if ( 'specialized_spec' === $preset ) : ?>
+					<label class="cux-card-compare-label" title="<?php esc_attr_e( 'Compare this product', 'commerce-ux-studio' ); ?>">
+						<span><?php esc_html_e( 'Compare', 'commerce-ux-studio' ); ?></span>
+						<input type="checkbox"
+							class="cux-compare-checkbox"
+							value="<?php echo esc_attr( (string) $product_id ); ?>"
+							data-title="<?php echo esc_attr( $product->get_name() ); ?>"
+							data-price="<?php echo esc_attr( wp_strip_all_tags( $product->get_price_html() ) ); ?>"
+							data-subtitle="<?php echo esc_attr( (string) get_post_meta( $product_id, '_cux_spec_subtitle', true ) ); ?>"
+							data-img="<?php echo esc_url( $thumb_url ? $thumb_url : '' ); ?>"
+							data-url="<?php echo esc_url( get_permalink( $product_id ) ); ?>" />
+					</label>
+				<?php endif; ?>
+			</div>
+			<?php
+		endif;
+
+		// 4B. Render Synced Native WooCommerce Brand Eyebrow above the Product Title if assigned.
+		$brand = CUX_Inheritance_Engine::resolve_product_brand( $product_id );
+		if ( ! empty( $brand['name'] ) ) :
+			?>
+			<div class="cux-card-brand-eyebrow">
+				<?php echo esc_html( $brand['name'] ); ?>
+			</div>
+			<?php
+		endif;
+	}
+
+	/**
+	 * 5. Render Technical Spec Subtitle ("Shimano Dura-Ace Di2"), Custom Tagline, and Financing Note
+	 *    cleanly below the price (`woocommerce_after_shop_loop_item`) so Flatsome's `.price-wrapper` stays untouched.
+	 */
+	public static function render_after_card_price_meta(): void {
+		global $product;
+		if ( ! is_object( $product ) ) {
+			return;
+		}
+
+		$product_id = (int) $product->get_id();
+		$config     = CUX_Inheritance_Engine::resolve_product_config( $product_id );
+		$preset     = $config['catalog_card_preset'] ?? 'specialized_spec';
+
+		$subtitle  = (string) get_post_meta( $product_id, '_cux_spec_subtitle', true );
+		$tagline   = (string) get_post_meta( $product_id, '_cux_tagline', true );
+		if ( '' === $tagline ) {
+			$tagline = (string) get_post_meta( $product_id, '_cux_brand_tagline', true );
+		}
+		$financing = (string) get_post_meta( $product_id, '_cux_financing_text', true );
+
+		if ( empty( $subtitle ) && empty( $tagline ) && empty( $financing ) ) {
+			return;
+		}
+		?>
+		<div class="cux-card-footer-meta">
+			<?php if ( 'pinarello_showroom' === $preset && ! empty( $tagline ) ) : ?>
+				<div class="cux-card-tagline"><?php echo esc_html( $tagline ); ?></div>
+			<?php elseif ( ! empty( $subtitle ) ) : ?>
+				<div class="cux-card-spec-subtitle"><?php echo esc_html( $subtitle ); ?></div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $financing ) ) : ?>
+				<div class="cux-card-financing-note"><?php echo esc_html( $financing ); ?></div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Helper: Output interactive Color Circles or Variation Photo Swatches + "+X more" counter for a Shop Card.
+	 *
+	 * @param array  $colors        Array of in-stock color metadata from `_cux_product_cache`.
+	 * @param int    $max_swatches  Max visible circles before showing "+X".
+	 * @param string $wrapper_class CSS class for the container.
+	 * @param string $swatch_mode   Global visual swatch mode (`hybrid_auto`, `variation_photo`, `color_circle`).
+	 */
+	private static function render_swatch_dots_markup(
+		array $colors,
+		int $max_swatches,
+		string $wrapper_class,
+		string $swatch_mode = 'hybrid_auto'
+	): void {
+		$visible   = array_slice( $colors, 0, $max_swatches );
+		$remaining = count( $colors ) - count( $visible );
+		?>
+		<div class="cux-card-swatches <?php echo esc_attr( $wrapper_class ); ?>">
+			<?php
+			foreach ( $visible as $idx => $color ) :
+				$hex_1    = ! empty( $color['hex_1'] ) ? $color['hex_1'] : '#334155';
+				$hex_2    = $color['hex_2'] ?? '';
+				$split    = $color['split'] ?? 'horizontal';
+				$card_img = $color['card_img_url'] ?? '';
+
+				$is_photo_dot = ( in_array( $swatch_mode, array( 'variation_photo', 'variation_image', 'auto_variation_image' ), true ) && ! empty( $card_img ) );
+				$bg_css       = class_exists( 'CUX_PDP_Renderer' )
+					? CUX_PDP_Renderer::compile_swatch_background_css( $hex_1, $hex_2, $split, $is_photo_dot ? $card_img : '' )
+					: $hex_1;
+				?>
+				<button type="button"
+					class="cux-card-swatch-dot <?php echo 0 === $idx ? 'is-active' : ''; ?> <?php echo $is_photo_dot ? 'is-photo-swatch' : ''; ?>"
+					data-color-slug="<?php echo esc_attr( $color['slug'] ?? '' ); ?>"
+					data-color-name="<?php echo esc_attr( $color['name'] ?? '' ); ?>"
+					data-img-src="<?php echo esc_url( $card_img ); ?>"
+					data-hover-src="<?php echo esc_url( $color['second_angle_url'] ?? '' ); ?>"
+					data-deep-link="<?php echo esc_attr( $color['deep_link_param'] ?? '' ); ?>"
+					title="<?php echo esc_attr( $color['name'] ?? '' ); ?>"
+					aria-label="<?php echo esc_attr( $color['name'] ?? '' ); ?>">
+					<span class="cux-card-swatch-inner" style="background: <?php echo esc_attr( $bg_css ); ?>;"></span>
+				</button>
+			<?php endforeach; ?>
+
+			<?php if ( $remaining > 0 ) : ?>
+				<span class="cux-card-swatch-more">+<?php echo esc_html( (string) $remaining ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Retrieve or auto-build the precomputed cache for a Variable Product on the Shop page.
+	 *
+	 * @param WC_Product $product Variable product.
+	 * @return array
+	 */
+	private static function get_or_build_card_cache( WC_Product $product ): array {
+		$product_id = (int) $product->get_id();
+		$cache      = CUX_Cache_Manager::get_product_cache( $product_id );
+
+		if ( empty( $cache ) && class_exists( 'CUX_Stock_Calculator' ) ) {
+			CUX_Stock_Calculator::sync_parent_product( $product_id, 'catalog_init' );
+			$cache = CUX_Cache_Manager::get_product_cache( $product_id );
+		}
+
+		return is_array( $cache ) ? $cache : array();
+	}
+
+	/**
+	 * Extract in-stock size buttons for Style C (Apparel Quick-Add Catalog Cards).
+	 *
+	 * @param WC_Product $product Variable product.
+	 * @param array      $cache   Precomputed product cache.
+	 * @return array
+	 */
+	private static function get_in_stock_size_pills( WC_Product $product, array $cache ): array {
+		$avail_map   = $cache['availability_matrix'] ?? array();
+		$dim_attrs   = $cache['dimensional_attrs'] ?? array( 'pa_size', 'size' );
+		$winner_slug = $cache['winner_color_slug'] ?? '';
+		$pills       = array();
+		$seen_sizes  = array();
+
+		if ( empty( $avail_map ) ) {
+			return array();
+		}
+
+		foreach ( $avail_map as $var_id => $var_data ) {
+			if ( empty( $var_data['is_in_stock'] ) ) {
+				continue;
+			}
+
+			$var_color  = $var_data['color_slug'] ?? '';
+			$attributes = $var_data['attributes'] ?? array();
+			$size_val   = '';
+
+			foreach ( $attributes as $k => $v ) {
+				$k_clean = strtolower( (string) $k );
+				if ( in_array( $k_clean, $dim_attrs, true ) || false !== strpos( $k_clean, 'size' ) ) {
+					$size_val = strtoupper( (string) $v );
+					break;
+				}
+			}
+
+			if ( empty( $size_val ) && ! empty( $attributes ) ) {
+				$size_val = strtoupper( (string) end( $attributes ) );
+			}
+
+			$unique_key = $var_color . '__' . $size_val;
+			if ( empty( $size_val ) || isset( $seen_sizes[ $unique_key ] ) ) {
+				continue;
+			}
+			$seen_sizes[ $unique_key ] = true;
+
+			$pills[] = array(
+				'var_id'     => $var_id,
+				'size_label' => $size_val,
+				'color_slug' => $var_color,
+				'is_default' => ( $var_color === $winner_slug ),
 			);
 		}
 
-		if ( ! empty( $swatches['overflow'] ) && (int) $swatches['overflow'] > 0 ) {
-			echo '<span class="cux-card-swatch-more">+' . (int) $swatches['overflow'] . '</span>';
-		}
+		return array_slice( $pills, 0, 12 );
 	}
 
 	/**
-	 * Gather unique in-stock color swatches for a variable product on Shop Cards.
-	 *
-	 * @param WC_Product $product Variable product.
-	 * @param int        $max     Maximum swatches to display before `+X`.
-	 * @return array<string, mixed>
+	 * 6. Render the Floating Side-by-Side Compare Drawer at the bottom of Shop / Category pages.
 	 */
-	private static function get_card_color_swatches( WC_Product $product, int $max = 4 ): array {
-		$items  = array();
-		$seen   = array();
-		$max    = max( 2, $max );
-
-		foreach ( $product->get_children() as $child_id ) {
-			$var = wc_get_product( $child_id );
-			if ( ! ( $var instanceof WC_Product_Variation ) || ! $var->is_in_stock() ) {
-				continue;
-			}
-
-			$attrs = (array) $var->get_attributes();
-			foreach ( $attrs as $tax => $val ) {
-				$slug_key = strtolower( (string) $tax );
-				if ( false === strpos( $slug_key, 'color' ) && false === strpos( $slug_key, 'colour' ) ) {
-					continue;
-				}
-				$val_str = (string) $val;
-				if ( '' === $val_str || isset( $seen[ $val_str ] ) ) {
-					continue;
-				}
-				$seen[ $val_str ] = true;
-
-				$term_obj   = taxonomy_exists( (string) $tax ) ? get_term_by( 'slug', $val_str, (string) $tax ) : null;
-				$term_id    = ( $term_obj && ! is_wp_error( $term_obj ) ) ? (int) $term_obj->term_id : 0;
-				$term_label = ( $term_obj && ! is_wp_error( $term_obj ) ) ? $term_obj->name : $val_str;
-
-				$img_id    = (int) $var->get_image_id( 'edit' );
-				$img_src   = $img_id > 0 ? (string) wp_get_attachment_image_url( $img_id, 'woocommerce_thumbnail' ) : '';
-				$bg_css    = class_exists( 'CUX_PDP_Renderer' ) ? CUX_PDP_Renderer::build_term_swatch_background( $term_id, $term_label ) : 'background-color:#1e293b;';
-				$attr_q    = 'attribute_' . sanitize_title( str_replace( 'attribute_', '', (string) $tax ) );
-
-				$items[] = array(
-					'label'     => $term_label,
-					'bg_css'    => $bg_css,
-					'img_src'   => $img_src,
-					'hover_src' => $img_src,
-					'deep_link' => '?' . rawurlencode( $attr_q ) . '=' . rawurlencode( $val_str ),
-				);
-			}
-		}
-
-		$total    = count( $items );
-		$overflow = $total > $max ? ( $total - $max ) : 0;
-
-		return array(
-			'items'    => array_slice( $items, 0, $max ),
-			'overflow' => $overflow,
-		);
-	}
-
-	/**
-	 * Gather in-stock size variations for Style C (Zara Quick-Add).
-	 *
-	 * @param WC_Product $product Variable product.
-	 * @return array<int, array<string, mixed>>
-	 */
-	private static function get_card_quick_add_sizes( WC_Product $product ): array {
-		$sizes = array();
-		$seen  = array();
-
-		foreach ( $product->get_children() as $child_id ) {
-			$var = wc_get_product( $child_id );
-			if ( ! ( $var instanceof WC_Product_Variation ) || ! $var->is_in_stock() ) {
-				continue;
-			}
-			foreach ( (array) $var->get_attributes() as $tax => $val ) {
-				$slug_key = strtolower( (string) $tax );
-				if ( false !== strpos( $slug_key, 'size' ) && '' !== (string) $val && ! isset( $seen[ (string) $val ] ) ) {
-					$seen[ (string) $val ] = true;
-					$sizes[]               = array(
-						'variation_id' => (int) $child_id,
-						'label'        => strtoupper( (string) $val ),
-					);
-				}
-			}
-		}
-
-		return array_slice( $sizes, 0, 6 );
-	}
-
-	/**
-	 * Render floating Compare Bar & Modal in footer on Shop/Category archives.
-	 */
-	public static function render_floating_compare_drawer(): void {
-		if ( ! function_exists( 'is_woocommerce' ) || ( ! is_shop() && ! is_product_category() && ! is_product_tag() ) ) {
+	public static function render_floating_compare_bar(): void {
+		if ( ! function_exists( 'is_woocommerce' ) || ( ! is_shop() && ! is_product_taxonomy() && ! is_front_page() ) ) {
 			return;
 		}
 		?>
 		<div id="cux-compare-bar" class="cux-compare-bar" style="display:none;">
 			<div class="cux-compare-bar-inner">
-				<div class="cux-compare-left">
-					<strong><?php esc_html_e( 'Compare Products', 'commerce-ux-studio' ); ?> (<span id="cux-compare-count">0</span>/4)</strong>
-					<div id="cux-compare-items-list" class="cux-compare-thumbs"></div>
-				</div>
+				<div class="cux-compare-items" id="cux-compare-items-list"></div>
 				<div class="cux-compare-actions">
-					<button type="button" id="cux-compare-clear-btn" class="button is-outline is-small"><?php esc_html_e( 'Clear', 'commerce-ux-studio' ); ?></button>
-					<button type="button" id="cux-compare-launch-btn" class="button primary is-small"><?php esc_html_e( 'Compare Now', 'commerce-ux-studio' ); ?></button>
+					<button type="button" class="cux-compare-open-modal-btn" id="cux-compare-launch-btn">
+						<?php esc_html_e( 'Compare Selected', 'commerce-ux-studio' ); ?> (<span id="cux-compare-count">0</span>)
+					</button>
+					<button type="button" class="cux-compare-clear-btn" id="cux-compare-clear-btn">
+						<?php esc_html_e( 'Clear', 'commerce-ux-studio' ); ?>
+					</button>
 				</div>
 			</div>
 		</div>
 
-		<div id="cux-compare-modal" class="cux-modal-overlay" style="display:none;">
-			<div class="cux-modal-backdrop cux-compare-modal-backdrop"></div>
-			<div class="cux-modal-dialog cux-compare-dialog">
-				<div class="cux-modal-header">
-					<h3><?php esc_html_e( 'Side-by-Side Product Comparison', 'commerce-ux-studio' ); ?></h3>
-					<button type="button" class="cux-modal-close cux-compare-modal-close">&times;</button>
+		<div id="cux-compare-modal" class="cux-compare-modal" style="display:none;">
+			<div class="cux-compare-modal-backdrop"></div>
+			<div class="cux-compare-modal-content">
+				<div class="cux-compare-modal-header">
+					<h3><?php esc_html_e( 'Product Comparison', 'commerce-ux-studio' ); ?></h3>
+					<button type="button" class="cux-compare-modal-close">&times;</button>
 				</div>
-				<div class="cux-modal-body">
-					<div id="cux-compare-modal-grid" class="cux-compare-grid"></div>
-				</div>
+				<div class="cux-compare-modal-body" id="cux-compare-modal-grid"></div>
 			</div>
 		</div>
 		<?php
