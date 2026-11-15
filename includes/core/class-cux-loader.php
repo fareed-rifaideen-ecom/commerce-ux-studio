@@ -1,6 +1,6 @@
 <?php
 /**
- * Central Service Container & Crash-Protected Module Loader (v2.3.1).
+ * Central Service Container & Crash-Protected Module Loader (v2.3.2).
  *
  * File Path: includes/core/class-cux-loader.php
  *
@@ -81,7 +81,7 @@ class CUX_Loader {
 		} catch ( \Throwable $e ) {
 			self::$module_health[ $label ] = false;
 			if ( function_exists( 'cux_studio_record_boot_error' ) ) {
-				cux_studio_record_boot_error( $e );
+				cux_studio_record_boot_error( $e, $label );
 			}
 		}
 	}
