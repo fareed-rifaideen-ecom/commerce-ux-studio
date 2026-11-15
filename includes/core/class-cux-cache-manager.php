@@ -1,8 +1,11 @@
 <?php
 /**
- * Precomputed Product UX Cache & Third-Party Page Cache Purge Manager.
+ * Precomputed Product UX Cache & Third-Party Page Cache Purge Manager (v2.3.2).
+ *
+ * File Path: includes/core/class-cux-cache-manager.php
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,7 +23,7 @@ class CUX_Cache_Manager {
 	 * Retrieve the precomputed UX cache for a parent product (zero SQL child queries).
 	 *
 	 * @param int $product_id Parent product ID.
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	public static function get_product_cache( int $product_id ): array {
 		$cached = get_post_meta( $product_id, self::CACHE_META_KEY, true );
@@ -39,8 +42,8 @@ class CUX_Cache_Manager {
 	/**
 	 * Store the precomputed UX cache on a parent product.
 	 *
-	 * @param int   $product_id Parent product ID.
-	 * @param array $payload    Precomputed cache array.
+	 * @param int                  $product_id Parent product ID.
+	 * @param array<string, mixed> $payload    Precomputed cache array.
 	 */
 	public static function set_product_cache( int $product_id, array $payload ): void {
 		$payload['updated_at'] = time();
@@ -93,13 +96,13 @@ class CUX_Cache_Manager {
 	/**
 	 * Record an automated stock-winner image switch in the audit log table.
 	 *
-	 * @param int    $parent_id     Parent product ID.
-	 * @param string $source        Trigger source (admin, order, csv, odoo, bulk).
-	 * @param int    $old_var_id    Previous winning variation ID.
-	 * @param int    $new_var_id    New winning variation ID.
-	 * @param int    $old_image_id  Previous main attachment ID.
-	 * @param int    $new_image_id  New main attachment ID.
-	 * @param int    $stock_qty     Winning stock quantity snapshot.
+	 * @param int    $parent_id    Parent product ID.
+	 * @param string $source       Trigger source (admin, order, csv, rest, bulk).
+	 * @param int    $old_var_id   Previous winning variation ID.
+	 * @param int    $new_var_id   New winning variation ID.
+	 * @param int    $old_image_id Previous main attachment ID.
+	 * @param int    $new_image_id New main attachment ID.
+	 * @param int    $stock_qty    Winning stock quantity snapshot.
 	 */
 	public static function log_sync_event(
 		int $parent_id,
@@ -112,6 +115,11 @@ class CUX_Cache_Manager {
 	): void {
 		global $wpdb;
 		$audit_table = $wpdb->prefix . 'cux_sync_audit_log';
+
+		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $audit_table ) );
+		if ( $table_exists !== $audit_table ) {
+			return;
+		}
 
 		$wpdb->insert(
 			$audit_table,
