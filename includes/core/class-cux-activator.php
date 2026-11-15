@@ -1,8 +1,11 @@
 <?php
 /**
- * Database Installer, Default Seeder & Git Deployment Migration Handler.
+ * Database Installer, Default Seeder & Git Deployment Migration Handler (v2.3.2).
+ *
+ * File Path: includes/core/class-cux-activator.php
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -31,7 +34,7 @@ class CUX_Activator {
 	 * Automatically check if code DB version is newer than stored DB version (Git Deploy safe).
 	 */
 	public static function maybe_upgrade_db(): void {
-		$installed_version = get_option( 'cux_db_version', '0.0.0' );
+		$installed_version = (string) get_option( 'cux_db_version', '0.0.0' );
 		if ( version_compare( $installed_version, CUX_STUDIO_DB_VERSION, '<' ) ) {
 			self::create_tables();
 			self::seed_defaults_if_empty();
@@ -86,6 +89,7 @@ class CUX_Activator {
 	 * Seed default global settings and presets from config/default-presets.json if not yet set.
 	 *
 	 * @param bool $force Whether to overwrite existing settings from the repository JSON file.
+	 * @return bool
 	 */
 	public static function seed_defaults_if_empty( bool $force = false ): bool {
 		$json_file = CUX_STUDIO_PATH . 'config/default-presets.json';
@@ -94,7 +98,7 @@ class CUX_Activator {
 		}
 
 		$raw_json = file_get_contents( $json_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		$decoded  = json_decode( $raw_json, true );
+		$decoded  = json_decode( (string) $raw_json, true );
 		if ( ! is_array( $decoded ) ) {
 			return false;
 		}
@@ -116,7 +120,7 @@ class CUX_Activator {
 		}
 
 		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$rules_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		if ( ( 0 === $count || $force ) && ! empty( $decoded['presets'] ) ) {
+		if ( ( 0 === $count || $force ) && ! empty( $decoded['presets'] ) && is_array( $decoded['presets'] ) ) {
 			if ( $force ) {
 				$wpdb->query( "DELETE FROM {$rules_table} WHERE rule_type = 'preset'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			}
@@ -143,7 +147,7 @@ class CUX_Activator {
 	/**
 	 * Check health status of custom database tables.
 	 *
-	 * @return array
+	 * @return array<string, mixed>
 	 */
 	public static function get_database_health(): array {
 		global $wpdb;
