@@ -1,13 +1,13 @@
 <?php
 /**
- * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.3 Universal Configurable Edition).
+ * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.3.1 Universal Configurable Edition).
  *
  * File Path: includes/admin/class-cux-admin-menu.php
  *
  * Designed for zero-learning-curve client handover across any WooCommerce store:
- * - Tab 1: Look & Feel (Card Style Picker, Brand Sync, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability & Sticky Gallery)
- * - Tab 2: Stock & Gallery Autopilot (Highest-Stock Winner, Strict Single-Variation Gallery Isolation & 1-Click Sync)
- * - Tab 3: Delivery & Cross-Sells (Universal WooCommerce Shipping Zones, Methods, Classes & Layout Switcher)
+ * - Tab 1: Look & Feel (Card Style Picker, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability, Brand Sync 1A/1B/1C, Header Meta 2A/2B, Swatch Contrast 4A/4B, Sticky Gallery)
+ * - Tab 2: Stock & Gallery Autopilot (Highest-Stock Winner, Strict Single-Variation Gallery Isolation, Auto-Copy Color Galleries & 1-Click Sync)
+ * - Tab 3: Delivery & Cross-Sells (Delivery Layout 6A/6B/6C, Universal WC Shipping Zones/Classes Sync & Size Guide Modal)
  * - Collapsible Bottom Drawer: Developer, Google Schema & Git Tools
  *
  * @package Commerce_UX_Studio
@@ -87,7 +87,8 @@ class CUX_Admin_Menu {
 	 *
 	 * @param string $hook Current admin page hook.
 	 */
-	public static function enqueue_admin_assets( string $hook ): void {
+	public static function enqueue_admin_assets( $hook ): void {
+		$hook = (string) $hook;
 		if ( false === strpos( $hook, 'cux-' ) && false === strpos( $hook, 'commerce-ux-studio' ) ) {
 			return;
 		}
@@ -257,7 +258,7 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Tab 1: Store Look & Feel (Card Picker, Brand Sync, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability & Sticky Gallery).
+	 * Tab 1: Store Look & Feel (Card Picker, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability, Brand Sync & Sticky Gallery).
 	 */
 	public static function render_look_and_feel_page(): void {
 		$s        = CUX_Inheritance_Engine::get_global_settings();
@@ -568,6 +569,7 @@ class CUX_Admin_Menu {
 						);
 					}
 				}
+				// Also include Zone 0 ("Locations not covered by your other zones").
 				$zone_zero    = new WC_Shipping_Zone( 0 );
 				$zero_methods = $zone_zero->get_shipping_methods( false );
 				if ( ! empty( $zero_methods ) ) {
@@ -585,7 +587,7 @@ class CUX_Admin_Menu {
 			$discovered_zones = array();
 		}
 
-		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box & Complete Your Ride', 'commerce-ux-studio' ) );
+		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box, Size Guide Modal & Complete Your Ride', 'commerce-ux-studio' ) );
 		?>
 			<div class="cux-card" style="margin-bottom: 18px; background: #f0f6fc; border-left: 4px solid #2271b1;">
 				<strong><?php esc_html_e( '100% Universal WooCommerce Shipping Zones, Methods & Classes Sync:', 'commerce-ux-studio' ); ?></strong>
@@ -604,7 +606,7 @@ class CUX_Admin_Menu {
 						<th scope="row"><?php esc_html_e( 'Show Delivery Method Box on Product Pages', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[enable_delivery_block]">
-								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup options above Add to Cart)', 'commerce-ux-studio' ); ?></option>
+								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup switcher above Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
@@ -613,7 +615,7 @@ class CUX_Admin_Menu {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Delivery & Pickup Switcher UI Layout', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<select name="cux_settings[delivery_layout_style]">
+							<select name="cux_settings[delivery_layout_style]" style="max-width: 100%;">
 								<option value="option_6a" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6a' ); ?>><?php esc_html_e( 'Option 6A (Recommended): Full-Width Stacked Horizontal Radio Rows (Zero Text Wrapping)', 'commerce-ux-studio' ); ?></option>
 								<option value="option_6b" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6b' ); ?>><?php esc_html_e( 'Option 6B: Compact 2-Tab Segmented Switcher Pill + Single Status Row', 'commerce-ux-studio' ); ?></option>
 								<option value="option_6c" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6c' ); ?>><?php esc_html_e( 'Option 6C: Redesigned 2-Column Cards (Full-Width Top Title + Bottom Badge)', 'commerce-ux-studio' ); ?></option>
@@ -667,10 +669,10 @@ class CUX_Admin_Menu {
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Global Size Guide UX Block / Shortcode', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Global Default Size Guide (UX Block)', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<input type="text" name="cux_settings[default_size_guide]" value="<?php echo esc_attr( $s['default_size_guide'] ?? '' ); ?>" class="regular-text" placeholder='e.g., [block id="size-guide"] or block slug' />
-							<p class="description"><?php esc_html_e( 'Accepts a Flatsome shortcode [block id="..."], UX Block slug, or numeric ID. Opens in a centered modal when clicking "? Size Guide".', 'commerce-ux-studio' ); ?></p>
+							<input type="text" name="cux_settings[default_size_guide]" value="<?php echo esc_attr( $s['default_size_guide'] ?? '' ); ?>" class="regular-text" placeholder='e.g., [block id="bike-size-guide"] or slug' />
+							<p class="description"><?php esc_html_e( 'Accepts a Flatsome shortcode ([block id="..."]), UX Block slug, or numeric ID. Opens inside a centered Lightbox Modal when clicking "? Size Guide".', 'commerce-ux-studio' ); ?></p>
 						</td>
 					</tr>
 
@@ -681,6 +683,7 @@ class CUX_Admin_Menu {
 								<option value="yes" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Automatically displays native WooCommerce Cross-sells below Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
+							<input type="text" name="cux_settings[cross_sell_heading]" value="<?php echo esc_attr( $s['cross_sell_heading'] ?? 'Complete Your Ride' ); ?>" class="regular-text" style="margin-left: 10px;" placeholder="Complete Your Ride" />
 						</td>
 					</tr>
 				</table>
@@ -792,7 +795,7 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Collapsible Developer, Schema & Git Health Drawer.
+	 * Collapsible Developer, Google Schema & Git Health Drawer.
 	 */
 	private static function render_developer_drawer(): void {
 		$db_health = class_exists( 'CUX_Activator' ) ? CUX_Activator::get_database_health() : array(
