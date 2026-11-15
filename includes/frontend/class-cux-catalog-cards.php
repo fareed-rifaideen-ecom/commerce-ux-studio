@@ -1,6 +1,6 @@
 <?php
 /**
- * Flatsome Shop & Category Archive Card Renderer (v2.3.1 Universal Configurable Edition).
+ * Flatsome Shop & Category Archive Card Renderer (v2.3.2 Universal Configurable Edition).
  *
  * File Path: includes/frontend/class-cux-catalog-cards.php
  *
@@ -10,7 +10,7 @@
  *    in Tab 1 immediately updates Shop & Category cards.
  * 2. Fixes the Flatsome `.box-image` overlay hook (`flatsome_woocommerce_shop_loop_images`)
  *    so Style B overlaid swatches and Style C Quick-Add bars stay strictly inside the image
- *    frame and never overlap the product price (`﷼ ● 5`).
+ *    frame and never overlap the product price.
  * 3. Injects the dynamic Hover Image ID (`angle_2` or `second_color`) into
  *    `woocommerce_product_get_gallery_image_ids` so Flatsome's native "Back Image - Fade In"
  *    hover works automatically on every variable product.
@@ -90,8 +90,8 @@ class CUX_Catalog_Cards {
 		$config         = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 		$preset_slug    = $config['catalog_card_preset'] ?? 'specialized_spec';
 		$hover_mode     = $config['catalog_hover_mode'] ?? 'angle_2';
-		$contrast_style = $config['swatch_active_style'] ?? 'checkmark_4a';
-		$swatch_mode    = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+		$contrast_style = $config['swatch_active_style'] ?? 'option_4a';
+		$swatch_mode    = $config['visual_swatch_mode'] ?? 'smart_hybrid';
 
 		$classes[] = 'cux-card-enhanced';
 		$classes[] = 'cux-card-preset-' . sanitize_html_class( $preset_slug );
@@ -188,7 +188,7 @@ class CUX_Catalog_Cards {
 		$cache        = $product->is_type( 'variable' ) ? self::get_or_build_card_cache( $product ) : array();
 		$colors       = $cache['in_stock_colors'] ?? array();
 		$max_swatches = max( 1, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
-		$swatch_mode  = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+		$swatch_mode  = $config['visual_swatch_mode'] ?? 'smart_hybrid';
 		?>
 		<div class="cux-card-overlays" data-product-id="<?php echo esc_attr( (string) $product_id ); ?>" data-base-url="<?php echo esc_url( get_permalink( $product_id ) ); ?>">
 			<?php if ( ! empty( $badge_tl ) ) : ?>
@@ -246,7 +246,7 @@ class CUX_Catalog_Cards {
 		$config       = CUX_Inheritance_Engine::resolve_product_config( $product_id );
 		$preset       = $config['catalog_card_preset'] ?? 'specialized_spec';
 		$max_swatches = max( 1, (int) ( $config['catalog_max_swatches'] ?? 4 ) );
-		$swatch_mode  = $config['visual_swatch_mode'] ?? 'hybrid_auto';
+		$swatch_mode  = $config['visual_swatch_mode'] ?? 'smart_hybrid';
 
 		$cache  = $product->is_type( 'variable' ) ? self::get_or_build_card_cache( $product ) : array();
 		$colors = $cache['in_stock_colors'] ?? array();
@@ -337,13 +337,13 @@ class CUX_Catalog_Cards {
 	 * @param array  $colors        Array of in-stock color metadata from `_cux_product_cache`.
 	 * @param int    $max_swatches  Max visible circles before showing "+X".
 	 * @param string $wrapper_class CSS class for the container.
-	 * @param string $swatch_mode   Global visual swatch mode (`hybrid_auto`, `variation_photo`, `color_circle`).
+	 * @param string $swatch_mode   Global visual swatch mode (`smart_hybrid`, `variation_image`, `color_circle`).
 	 */
 	private static function render_swatch_dots_markup(
 		array $colors,
 		int $max_swatches,
 		string $wrapper_class,
-		string $swatch_mode = 'hybrid_auto'
+		string $swatch_mode = 'smart_hybrid'
 	): void {
 		$visible   = array_slice( $colors, 0, $max_swatches );
 		$remaining = count( $colors ) - count( $visible );
