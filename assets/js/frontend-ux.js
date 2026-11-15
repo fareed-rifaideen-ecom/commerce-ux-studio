@@ -32,7 +32,8 @@
 			i18nOutOfStock: rawCfg.i18nOutOfStock || nestedI18n.outOfStock || 'Out of Stock',
 			i18nAdded: rawCfg.i18nAdded || nestedI18n.added || 'Added to Cart',
 			i18nLowStock: rawCfg.i18nLowStock || nestedI18n.lowStock || 'Low Stock',
-			i18nInStock: rawCfg.i18nInStock || nestedI18n.inStock || 'In Stock'
+			i18nInStock: rawCfg.i18nInStock || nestedI18n.inStock || 'In Stock',
+			i18nUnavailable: rawCfg.i18nUnavailable || 'Unavailable in selected option'
 		};
 
 		/* ======================================================================
@@ -88,58 +89,16 @@
 		});
 
 		/* ======================================================================
-		   2. STYLE C CATALOG QUICK-ADD SIZE PILLS (AJAX ADD TO CART)
-		   ====================================================================== */
-		$(document).on('click', '.cux-zara-size-pill', function (e) {
-			e.preventDefault();
-			e.stopPropagation();
-
-			const $btn = $(this);
-			const productId = $btn.data('product-id');
-			const variationId = $btn.data('variation-id');
-			const origText = $btn.text();
-
-			if (!productId || !variationId || $btn.prop('disabled')) {
-				return;
-			}
-
-			$btn.prop('disabled', true).text('...');
-
-			$.post(i18n.ajaxUrl, {
-				action: 'cux_quick_add_to_cart',
-				nonce: i18n.nonce,
-				product_id: productId,
-				variation_id: variationId,
-				quantity: 1
-			}).done(function (res) {
-				$btn.text('✓');
-				if (res && res.fragments) {
-					$.each(res.fragments, function (key, value) {
-						$(key).replaceWith(value);
-					});
-					$(document.body).trigger('added_to_cart', [res.fragments, res.cart_hash, $btn]);
-				} else {
-					$(document.body).trigger('wc_fragment_refresh');
-				}
-				setTimeout(function () {
-					$btn.prop('disabled', false).text(origText);
-				}, 1400);
-			}).fail(function () {
-				$btn.prop('disabled', false).text(origText);
-			});
-		});
-
-		/* ======================================================================
-		   3. SINGLE PRODUCT PAGE (PDP): SWATCHES & FLATSOME FLICKITY BRIDGE
+		   3. SINGLE PRODUCT PAGE (PDP): SWATCHES, CROSS-ATTRIBUTE AVAILABILITY
+		      & STRICT VARIATION GALLERY ISOLATION
 		   ====================================================================== */
 		const $jsonNode = $('#cux-pdp-json-data, #cux-pdp-data').first();
 		let pdpData = null;
-		let activeVisualHash = '';
+		let activeGallerySignature = '';
 
 		if ($jsonNode.length) {
 			try {
 				pdpData = JSON.parse($jsonNode.text());
-				activeVisualHash = pdpData.winner_visual_hash || '';
 			} catch (err) {
 				pdpData = null;
 			}
@@ -147,6 +106,16 @@
 
 		function updateGalleryCounter(currentIndex, totalSlides) {
 			const $gallery = $('.product-gallery-slider').first();
+			const $thumbs = $('.product-thumbnails').first();
+
+			if ($thumbs.length) {
+				if (totalSlides <= 1) {
+					$thumbs.addClass('cux-single-image-hidden');
+				} else {
+					$thumbs.removeClass('cux-single-image-hidden');
+				}
+			}
+
 			if (!$gallery.length || totalSlides <= 1) {
 				$('.cux-gallery-counter-pill').remove();
 				return;
@@ -169,6 +138,167 @@
 			});
 		}
 
+		/**
+		 * Return map of currently selected normalized attribute slugs:
+		 * e.g. { attribute_pa_size: 's2', attribute_pa_colour: 'black-liquid-metal' }
+		 */
+		function getCurrentSelectedAttributes() {
+			const selectedMap = {};
+			$('.cux-swatch-control-wrap').each(function () {
+				const attrKey = String($(this).data('attribute') || '').toLowerCase();
+				const $sel = $(this).find('.cux-swatch-item.is-selected').first();
+				if (attrKey && $sel.length) {
+					const slug = String($sel.data('slug') || $sel.data('value') || '');
+					if (slug !== '') {
+						selectedMap[attrKey] = slug;
+					}
+				}
+			});
+			return selectedMap;
+		}
+
+		/**
+		 * Check if a variation record matches a set of attribute key => slug pairs.
+		 */
+		function variationMatchesAttributes(varData, testAttrs) {
+			if (!varData) {
+				return false;
+			}
+			const norm = varData.norm_attrs || {};
+			const raw = varData.attributes || {};
+
+			for (const reqKey in testAttrs) {
+				if (!Object.prototype.hasOwnProperty.call(testAttrs, reqKey)) {
+					continue;
+				}
+				const reqSlug = String(testAttrs[reqKey] || '');
+				if (!reqSlug) {
+					continue;
+				}
+
+				const reqNoAttr = reqKey.replace(/^attribute_/, '');
+				const reqNoPa = reqNoAttr.replace(/^pa_/, '');
+				let matchedKey = false;
+				let varValSlug = '';
+
+				if (Object.prototype.hasOwnProperty.call(norm, reqKey)) {
+					matchedKey = true;
+					varValSlug = String(norm[reqKey] || '');
+				} else {
+					for (const k in raw) {
+						if (!Object.prototype.hasOwnProperty.call(raw, k)) {
+							continue;
+						}
+						const kLow = String(k).toLowerCase().replace(/^attribute_/, '');
+						const kNoPa = kLow.replace(/^pa_/, '');
+						if (kLow === reqNoAttr || kNoPa === reqNoPa) {
+							matchedKey = true;
+							varValSlug = String(raw[k] || '').toLowerCase();
+							break;
+						}
+					}
+				}
+
+				if (!matchedKey) {
+					return false;
+				}
+				// Empty string '' on a WooCommerce variation attribute means "Any Size / Any Colour" wildcard.
+				if (varValSlug !== '' && varValSlug !== reqSlug) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/**
+		 * Evaluate every attribute button against currently selected attributes in OTHER rows
+		 * so selecting a Size immediately crosses out unavailable Colours (and vice versa).
+		 */
+		function evaluateCrossAttributeAvailability() {
+			if (!pdpData || !pdpData.availability_matrix) {
+				return;
+			}
+
+			const matrix = pdpData.availability_matrix;
+			const currentSelections = getCurrentSelectedAttributes();
+
+			$('.cux-swatch-control-wrap').each(function () {
+				const $wrap = $(this);
+				const targetAttrKey = String($wrap.data('attribute') || '').toLowerCase();
+				const crossMode = $wrap.data('cross-oos-mode') || pdpData.cross_attr_oos_mode || 'smart_switch';
+
+				// Build filter from all OTHER selected attributes.
+				const otherSelections = {};
+				for (const k in currentSelections) {
+					if (Object.prototype.hasOwnProperty.call(currentSelections, k) && k !== targetAttrKey) {
+						otherSelections[k] = currentSelections[k];
+					}
+				}
+
+				const hasOtherSelections = Object.keys(otherSelections).length > 0;
+
+				$wrap.find('.cux-swatch-item').each(function () {
+					const $btn = $(this);
+					const candidateSlug = String($btn.data('slug') || $btn.data('value') || '');
+					const baseName = String($btn.data('name') || candidateSlug);
+
+					if (!hasOtherSelections) {
+						$btn.removeClass('is-oos-in-combo is-cross-locked').attr('title', baseName);
+						return;
+					}
+
+					const comboTest = Object.assign({}, otherSelections);
+					comboTest[targetAttrKey] = candidateSlug;
+
+					let hasStockInCombo = false;
+					for (const varId in matrix) {
+						if (!Object.prototype.hasOwnProperty.call(matrix, varId)) {
+							continue;
+						}
+						const vData = matrix[varId];
+						if (variationMatchesAttributes(vData, comboTest) && vData.is_in_stock) {
+							hasStockInCombo = true;
+							break;
+						}
+					}
+
+					if (!hasStockInCombo) {
+						$btn.addClass('is-oos-in-combo').attr('title', baseName + ' (' + i18n.i18nUnavailable + ')');
+						if (crossMode === 'strict_lock') {
+							$btn.addClass('is-cross-locked');
+						} else {
+							$btn.removeClass('is-cross-locked');
+						}
+					} else {
+						$btn.removeClass('is-oos-in-combo is-cross-locked').attr('title', baseName);
+					}
+				});
+			});
+		}
+
+		/**
+		 * Find the first in-stock variation ID that matches the given attribute key => slug map.
+		 */
+		function findFirstMatchingVariation(testAttrs, requireInStock) {
+			if (!pdpData || !pdpData.availability_matrix) {
+				return null;
+			}
+			const matrix = pdpData.availability_matrix;
+			for (const varId in matrix) {
+				if (!Object.prototype.hasOwnProperty.call(matrix, varId)) {
+					continue;
+				}
+				const vData = matrix[varId];
+				if (requireInStock && !vData.is_in_stock) {
+					continue;
+				}
+				if (variationMatchesAttributes(vData, testAttrs)) {
+					return vData;
+				}
+			}
+			return null;
+		}
+
 		function computeSelectedVisualHash() {
 			if (!pdpData) {
 				return '';
@@ -187,20 +317,24 @@
 			return parts.join('__');
 		}
 
-		function swapFlatsomeGalleryByHash(visualHash, fallbackColorSlug) {
-			if (!pdpData || !pdpData.slides_by_hash) {
-				return;
-			}
-
-			const slides = pdpData.slides_by_hash[visualHash] || pdpData.slides_by_hash[fallbackColorSlug] || null;
+		/**
+		 * Replace the Flatsome Flickity main slider & thumbnail rail with the given slide list.
+		 * In Strict Variation Mode, shows ONLY the selected variation's image(s).
+		 */
+		function renderFlatsomeGallerySlides(slides) {
 			if (!slides || !slides.length) {
 				return;
 			}
 
-			if (visualHash === activeVisualHash) {
+			const signature = slides.map(function (s) {
+				return s.id;
+			}).join(',');
+
+			if (signature === activeGallerySignature) {
+				updateGalleryCounter(0, slides.length);
 				return;
 			}
-			activeVisualHash = visualHash;
+			activeGallerySignature = signature;
 
 			const $slider = $('.product-gallery-slider').first();
 			const $thumbs = $('.product-thumbnails').first();
@@ -259,20 +393,65 @@
 			updateGalleryCounter(0, slides.length);
 		}
 
-		// Handle Swatch Selection & Active Contrast Toggle (Option 4A Checkmark / Option 4B Border + Dot).
+		/**
+		 * Resolve and swap the gallery for the currently selected variation or visual hash.
+		 */
+		function syncGalleryForSelection(explicitVarId, fallbackColorSlug) {
+			if (!pdpData) {
+				return;
+			}
+
+			const isolationMode = pdpData.gallery_isolation_mode || 'strict_variation';
+			let targetVarId = explicitVarId || 0;
+
+			if (!targetVarId) {
+				const currentSelections = getCurrentSelectedAttributes();
+				const matchedVar = findFirstMatchingVariation(currentSelections, true) || findFirstMatchingVariation(currentSelections, false);
+				if (matchedVar && matchedVar.var_id) {
+					targetVarId = matchedVar.var_id;
+				}
+			}
+
+			// 1. Strict Variation Gallery Isolation: show ONLY the selected variation's own slide(s).
+			if (isolationMode === 'strict_variation' && targetVarId && pdpData.slides_by_variation && pdpData.slides_by_variation[targetVarId]) {
+				renderFlatsomeGallerySlides(pdpData.slides_by_variation[targetVarId]);
+				return;
+			}
+
+			// 2. Fallback / Colorway Group gallery by visual hash.
+			const visualHash = computeSelectedVisualHash();
+			if (pdpData.slides_by_hash) {
+				const hashSlides = pdpData.slides_by_hash[visualHash] || pdpData.slides_by_hash[fallbackColorSlug] || null;
+				if (hashSlides && hashSlides.length) {
+					renderFlatsomeGallerySlides(hashSlides);
+					return;
+				}
+			}
+
+			if (targetVarId && pdpData.slides_by_variation && pdpData.slides_by_variation[targetVarId]) {
+				renderFlatsomeGallerySlides(pdpData.slides_by_variation[targetVarId]);
+			}
+		}
+
+		// Run initial cross-attribute availability check on page load.
+		evaluateCrossAttributeAvailability();
+
+		// Handle Swatch Selection, Cross-Attribute Smart-Switch & Active Contrast Toggle.
 		$(document).on('click', '.cux-swatch-item', function (e) {
 			e.preventDefault();
 			const $btn = $(this);
-			if ($btn.hasClass('is-disabled') || $btn.prop('disabled')) {
+			if ($btn.hasClass('is-disabled') || $btn.hasClass('is-cross-locked') || $btn.prop('disabled')) {
 				return;
 			}
 
 			const $wrap = $btn.closest('.cux-swatch-control-wrap');
 			const $itemsContainer = $wrap.find('.cux-swatch-items');
-			const role = $wrap.data('role');
+			const attrKey = String($wrap.data('attribute') || '').toLowerCase();
+			const crossMode = $wrap.data('cross-oos-mode') || (pdpData && pdpData.cross_attr_oos_mode) || 'smart_switch';
 			const val = $btn.data('value');
 			const name = $btn.data('name') || $btn.data('label') || val;
-			const slug = $btn.data('slug') || val;
+			const slug = String($btn.data('slug') || val);
+			const wasOosInCombo = $btn.hasClass('is-oos-in-combo');
 
 			$itemsContainer.addClass('has-selection');
 			$wrap.find('.cux-swatch-item')
@@ -289,22 +468,60 @@
 
 			const $select = $wrap.find('select').first();
 			if ($select.length) {
-				$select.val(val).trigger('change');
+				$select.val(val);
 			}
 
-			if (role === 'visual_primary' || role === 'visual_secondary') {
-				const newHash = computeSelectedVisualHash();
-				swapFlatsomeGalleryByHash(newHash, slug);
+			// Smart-Switch: if the user clicked an option that was crossed out for the OTHER attribute,
+			// automatically switch the other attribute to the first in-stock combination for this clicked option.
+			if (wasOosInCombo && crossMode === 'smart_switch' && attrKey) {
+				const singleReq = {};
+				singleReq[attrKey] = slug;
+				const bestMatch = findFirstMatchingVariation(singleReq, true) || findFirstMatchingVariation(singleReq, false);
+
+				if (bestMatch && bestMatch.norm_attrs) {
+					$('.cux-swatch-control-wrap').not($wrap).each(function () {
+						const $otherWrap = $(this);
+						const otherKey = String($otherWrap.data('attribute') || '').toLowerCase();
+						const targetSlug = bestMatch.norm_attrs[otherKey];
+
+						if (targetSlug) {
+							const $targetBtn = $otherWrap.find('.cux-swatch-item').filter(function () {
+								return String($(this).data('slug') || $(this).data('value')) === String(targetSlug);
+							}).first();
+
+							if ($targetBtn.length) {
+								$otherWrap.find('.cux-swatch-items').addClass('has-selection');
+								$otherWrap.find('.cux-swatch-item')
+									.removeClass('is-selected')
+									.addClass('is-deselected')
+									.attr('aria-checked', 'false');
+								$targetBtn
+									.addClass('is-selected')
+									.removeClass('is-deselected')
+									.attr('aria-checked', 'true');
+								$otherWrap.find('.cux-selected-term-label').text($targetBtn.data('name') || $targetBtn.data('value'));
+								$otherWrap.find('select').first().val($targetBtn.data('value'));
+							}
+						}
+					});
+				}
 			}
+
+			if ($select.length) {
+				$select.trigger('change');
+			}
+
+			evaluateCrossAttributeAvailability();
+			syncGalleryForSelection(0, slug);
 		});
 
-		// Handle WooCommerce "Clear" link click to reset active/deselected swatch states cleanly.
+		// Handle WooCommerce "Clear" link click to reset active/deselected & cross-attribute states cleanly.
 		$(document).on('click', '.reset_variations', function () {
 			$('.cux-swatch-control-wrap').each(function () {
 				const $wrap = $(this);
 				$wrap.find('.cux-swatch-items').removeClass('has-selection');
 				$wrap.find('.cux-swatch-item')
-					.removeClass('is-selected is-deselected')
+					.removeClass('is-selected is-deselected is-oos-in-combo is-cross-locked')
 					.attr('aria-checked', 'false');
 				$wrap.find('.cux-selected-term-label').text(i18n.i18nChooseOpts);
 			});
@@ -344,6 +561,10 @@
 				if (!pdpData || !pdpData.availability_matrix || !variation || !variation.variation_id) {
 					return;
 				}
+
+				// Ensure gallery strictly matches the found variation ID.
+				syncGalleryForSelection(variation.variation_id, '');
+				evaluateCrossAttributeAvailability();
 
 				const meta = pdpData.availability_matrix[variation.variation_id];
 				const $alertBanner = $('#cux-stock-alert-banner');
