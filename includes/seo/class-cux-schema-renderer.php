@@ -1,6 +1,6 @@
 <?php
 /**
- * Google Merchant ProductGroup JSON-LD Schema & Server-Side Deep-Link Variant Renderer.
+ * Google Merchant ProductGroup JSON-LD Schema & Server-Side Deep-Link Variant Renderer (v2.3.2).
  *
  * File Path: includes/seo/class-cux-schema-renderer.php
  *
@@ -11,6 +11,7 @@
  *    pre-selects that color's main image for OpenGraph (`og:image`) and initial server-side rendering.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -164,16 +165,16 @@ class CUX_Schema_Renderer {
 	 * 2. Server-Side Variant Deep-Linking: When a URL has `?attribute_pa_colour=gloss-white`,
 	 *    return that colorway's primary attachment ID on the server so the first byte matches the deep link.
 	 *
-	 * @param int        $image_id Current image attachment ID.
+	 * @param mixed      $image_id Current image attachment ID.
 	 * @param WC_Product $product  Product object.
-	 * @return int
+	 * @return mixed
 	 */
 	public static function filter_deep_link_main_image( $image_id, $product ) {
 		if ( is_admin() || ! function_exists( 'is_product' ) || ! is_product() ) {
 			return $image_id;
 		}
 
-		if ( ! is_object( $product ) || ! $product->is_type( 'variable' ) ) {
+		if ( ! is_object( $product ) || ! method_exists( $product, 'is_type' ) || ! $product->is_type( 'variable' ) ) {
 			return $image_id;
 		}
 
@@ -247,6 +248,13 @@ class CUX_Schema_Renderer {
 	 * @return string
 	 */
 	private static function resolve_product_brand_name( int $product_id ): string {
+		if ( class_exists( 'CUX_Inheritance_Engine' ) && method_exists( 'CUX_Inheritance_Engine', 'resolve_product_brand' ) ) {
+			$brand = CUX_Inheritance_Engine::resolve_product_brand( $product_id );
+			if ( ! empty( $brand['name'] ) ) {
+				return (string) $brand['name'];
+			}
+		}
+
 		$taxonomies = array( 'product_brand', 'pa_brand', 'pwb-brand', 'yith_product_brand' );
 		foreach ( $taxonomies as $tax ) {
 			if ( taxonomy_exists( $tax ) ) {
