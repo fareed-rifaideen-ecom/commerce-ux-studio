@@ -1,6 +1,6 @@
 <?php
 /**
- * Native WooCommerce 11.3+ Fields Integration (v2.3.1 Universal Configurable Edition).
+ * Native WooCommerce 11.3+ Fields Integration (v2.3.2 Universal Configurable Edition).
  *
  * File Path: includes/admin/class-cux-native-wc-fields.php
  *
