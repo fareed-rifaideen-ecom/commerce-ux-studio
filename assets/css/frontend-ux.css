@@ -1,6 +1,6 @@
-/
+/*!
 
-Commerce UX Studio - Frontend Responsive Stylesheet (v2.3.1 Universal Configurable Edition)
+Commerce UX Studio - Frontend Responsive Stylesheet (v2.3.2 Universal Configurable Edition)
 
 File Path: assets/css/frontend-ux.css
 
@@ -657,7 +657,7 @@ border-color: #0f172a !important;
 background-color: #f8fafc !important;
 }
 
-/* Contrast Mode 4A: Solid Dark Fill + Checkmark Badge (✓) */
+/* Contrast Mode 4A: Solid Dark Fill + Checkmark Badge */
 .cux-contrast-checkmark_4a button.cux-swatch-item.is-selected .cux-swatch-check-badge {
 display: block;
 }
@@ -675,7 +675,7 @@ color: #ffffff !important;
 display: inline-block;
 }
 
-/* Contrast Mode 4B: Framed Bold 2.5px Border + Bottom Active Indicator Dot (•) */
+/* Contrast Mode 4B: Framed Bold 2.5px Border + Bottom Active Indicator Dot */
 .cux-contrast-border_dot_4b .cux-swatch-items {
 margin-bottom: 8px;
 }
@@ -1378,10 +1378,13 @@ pointer-events: none;
 .cux-grid-2col-refined {
 grid-template-columns: 1fr;
 }
+
 .cux-swatch-style-size_box button.cux-swatch-item {
-min-width: 56px !important;
-min-height: 44px !important;
+	min-width: 56px !important;
+	min-height: 44px !important;
 }
+
+
 }
 
 @media (max-width: 767px) {
