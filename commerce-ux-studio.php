@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       Commerce UX Studio (Flatsome & Odoo Edition)
+ * Plugin Name:       Commerce UX Studio
  * Plugin URI:        https://github.com/fareed-rifaideen-ecom
- * Description:       Dynamic Variation Stock-Winner Gallery Sync, Multi-Attribute Swatch Switcher, Universal WooCommerce Shipping UI, Complete Your Ride Configurator, and Google ProductGroup Schema.
- * Version:           2.2.1
+ * Description:       Dynamic Variation Stock-Winner Gallery Sync, Multi-Option Visual & Image Swatches, Universal WooCommerce Shipping & Brand Sync, Complete Your Ride Configurator, and Google ProductGroup Schema.
+ * Version:           2.3.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Fareed M. Rifaideen
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Core Plugin Constants.
-define( 'CUX_STUDIO_VERSION', '2.2.1' );
+define( 'CUX_STUDIO_VERSION', '2.3.0' );
 define( 'CUX_STUDIO_DB_VERSION', '1.0.0' );
 define( 'CUX_STUDIO_FILE', __FILE__ );
 define( 'CUX_STUDIO_PATH', plugin_dir_path( __FILE__ ) );
