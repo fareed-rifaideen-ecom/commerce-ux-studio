@@ -1,6 +1,6 @@
 <?php
 /**
- * 4-Tier Configuration, Brand Sync & Layout Inheritance Engine (v2.3.1 Universal Edition).
+ * 4-Tier Configuration, Brand Sync & Layout Inheritance Engine (v2.3.2 Universal Edition).
  *
  * File Path: includes/rules/class-cux-inheritance-engine.php
  *
@@ -49,7 +49,7 @@ class CUX_Inheritance_Engine {
 	}
 
 	/**
-	 * Get all Global Store Settings merged with safe v2.3.1 defaults.
+	 * Get all Global Store Settings merged with safe v2.3.2 defaults.
 	 *
 	 * @return array<string, mixed>
 	 */
