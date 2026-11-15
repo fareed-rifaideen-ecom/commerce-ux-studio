@@ -1,6 +1,6 @@
 <?php
 /**
- * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.3.1 Universal Configurable Edition).
+ * Top-Level WordPress Dashboard Menu ("Commerce UX Studio" - v2.3.2 Universal Configurable Edition).
  *
  * File Path: includes/admin/class-cux-admin-menu.php
  *
@@ -715,13 +715,16 @@ class CUX_Admin_Menu {
 									if ( ! is_object( $method ) || empty( $method->id ) ) {
 										continue;
 									}
-									$rate_key   = $method->id . ':' . $instance_id;
-									$saved_row  = $method_meta[ $rate_key ] ?? array();
-									$is_enabled = method_exists( $method, 'is_enabled' ) ? $method->is_enabled() : true;
-									$wc_title   = method_exists( $method, 'get_title' ) && ! empty( $method->get_title() )
+									$rate_key        = $method->id . ':' . $instance_id;
+									$saved_row       = $method_meta[ $rate_key ] ?? array();
+									$is_enabled      = method_exists( $method, 'is_enabled' ) ? $method->is_enabled() : true;
+									$wc_title        = method_exists( $method, 'get_title' ) && ! empty( $method->get_title() )
 										? (string) $method->get_title()
 										: ( method_exists( $method, 'get_method_title' ) ? (string) $method->get_method_title() : (string) $method->id );
-									$is_pickup  = ( 'local_pickup' === $method->id );
+									$is_pickup       = ( 'local_pickup' === $method->id );
+									$sub_placeholder = $is_pickup
+										? __( 'Available for store pickup', 'commerce-ux-studio' )
+										: __( 'Auto-calculates class shipping rate', 'commerce-ux-studio' );
 									?>
 									<tr>
 										<td><strong><?php echo esc_html( (string) $z_group['zone_name'] ); ?></strong></td>
@@ -759,7 +762,7 @@ class CUX_Admin_Menu {
 											<input type="text"
 												name="cux_settings[shipping_method_meta][<?php echo esc_attr( $rate_key ); ?>][subtitle]"
 												value="<?php echo esc_attr( $saved_row['subtitle'] ?? '' ); ?>"
-												placeholder="<?php echo esc_attr( $is_pickup ? __( 'Available for store pickup', 'commerce-ux-studio' ) : __( 'Auto-calculates class shipping rate', 'commerce-ux-studio' ); ?>"
+												placeholder="<?php echo esc_attr( $sub_placeholder ); ?>"
 												class="regular-text" style="width:100%;" />
 										</td>
 									</tr>
