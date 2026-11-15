@@ -1,6 +1,6 @@
 <?php
 /**
- * Cart, Flatsome Mini-Cart & Checkout Variation Thumbnail Resolver.
+ * Cart, Flatsome Mini-Cart & Checkout Variation Thumbnail Resolver (v2.3.2).
  *
  * File Path: includes/frontend/class-cux-cart-thumbnails.php
  *
@@ -9,6 +9,7 @@
  * matching Color/Spec variation thumbnail (even if images were uploaded once per color).
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
