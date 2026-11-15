@@ -1,18 +1,8 @@
 <?php
 /**
- * Native WooCommerce 11.3+ Fields Integration (v2.3 Universal Configurable Edition).
+ * Native WooCommerce Product & Variation Fields (v2.3.0 Universal Edition)
  *
  * File Path: includes/admin/class-cux-native-wc-fields.php
- *
- * Places simple, beginner-friendly inputs directly inside standard WooCommerce tabs:
- * 1. General Tab:
- *    - Per-Product Visual Swatch Display Override (Inherit, Variation Image, Term Image, Colour Circle, or Text Button)
- *    - Per-Product Gallery Isolation Override (Strict Selected Variation Only vs. Colorway Group)
- *    - Card Spec Subtitle, Auto-Synced WooCommerce Brand / Tagline Override,
- *      Shop Card Corner Badges (Award Winning / DISC), Monthly Financing & Flatsome UX Block Size Guide Picker.
- * 2. Inventory Tab: "Lock Main Image" checkbox (prevents stock autopilot from changing launch hero image).
- * 3. Variations Tab: Friendly Autopilot banner + simple In-Store Pickup Status & Backorder Date per variation.
- * 4. Quick Edit & Native WooCommerce CSV Importer mapping.
  *
  * @package Commerce_UX_Studio
  * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
@@ -25,261 +15,151 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CUX_Native_WC_Fields {
 
 	/**
-	 * Initialize hooks into standard WooCommerce Product Data tabs, Variations, Quick Edit & CSV Importer.
+	 * Register WooCommerce product data tab and variation hooks.
 	 */
 	public static function init(): void {
-		if ( ! is_admin() ) {
-			return;
-		}
-
-		// 1. Standard "General" Tab Fields.
 		add_action( 'woocommerce_product_options_general_product_data', array( __CLASS__, 'render_general_tab_fields' ) );
+		add_action( 'woocommerce_product_options_inventory_product_data', array( __CLASS__, 'render_inventory_tab_fields' ) );
+		add_action( 'woocommerce_admin_process_product_object', array( __CLASS__, 'save_parent_product_fields' ) );
 
-		// 2. Standard "Inventory" Tab Field (Lock Main Image Checkbox).
-		add_action( 'woocommerce_product_options_stock_status', array( __CLASS__, 'render_inventory_tab_fields' ) );
-
-		// Save Parent Product Fields.
-		add_action( 'woocommerce_process_product_meta', array( __CLASS__, 'save_parent_product_fields' ), 20, 1 );
-
-		// 3. Standard "Variations" Tab Helpful Tip Banner & Simple Variation Fields.
-		add_action( 'woocommerce_variable_product_before_variations', array( __CLASS__, 'render_variations_autopilot_banner' ) );
-		add_action( 'woocommerce_variation_options_pricing', array( __CLASS__, 'render_variation_fields' ), 20, 3 );
-		add_action( 'woocommerce_save_product_variation', array( __CLASS__, 'save_variation_fields' ), 15, 2 );
-
-		// 4. Quick Edit & Native WooCommerce CSV Importer Mapping.
-		add_action( 'woocommerce_product_quick_edit_end', array( __CLASS__, 'render_quick_edit_fields' ) );
-		add_action( 'woocommerce_product_quick_edit_save', array( __CLASS__, 'save_quick_edit_fields' ) );
-		add_action( 'manage_product_posts_custom_column', array( __CLASS__, 'render_hidden_quick_edit_data' ), 20, 2 );
-		add_action( 'admin_footer-edit.php', array( __CLASS__, 'quick_edit_populate_js' ) );
-
-		add_filter( 'woocommerce_csv_product_import_mapping_options', array( __CLASS__, 'register_csv_mapping_options' ) );
-		add_filter( 'woocommerce_csv_product_import_mapping_default_columns', array( __CLASS__, 'register_csv_default_columns' ) );
+		add_action( 'woocommerce_variation_options', array( __CLASS__, 'render_variation_autopilot_banner' ), 10, 3 );
+		add_action( 'woocommerce_product_after_variable_attributes', array( __CLASS__, 'render_variation_fulfilment_fields' ), 10, 3 );
+		add_action( 'woocommerce_save_product_variation', array( __CLASS__, 'save_variation_fulfilment_fields' ), 10, 2 );
 	}
 
 	/**
-	 * 1. Render Per-Product Swatch Display Mode, Gallery Isolation, Card, Brand Sync & Size Guide fields inside WooCommerce's "General" tab.
+	 * Render custom Shop Card, Swatch Override, Brand Sync & Size Guide fields in Product data > General.
 	 */
 	public static function render_general_tab_fields(): void {
 		global $post;
-		$product_id = $post ? (int) $post->ID : 0;
+		$product_id = isset( $post->ID ) ? (int) $post->ID : 0;
 
-		$brand_info = class_exists( 'CUX_Inheritance_Engine' )
+		$brand_info = ( class_exists( 'CUX_Inheritance_Engine' ) && method_exists( 'CUX_Inheritance_Engine', 'resolve_product_brand' ) )
 			? CUX_Inheritance_Engine::resolve_product_brand( $product_id )
 			: array( 'name' => '' );
 
-		$saved_size_guide = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
-		$swatch_override  = (string) get_post_meta( $product_id, '_cux_product_swatch_mode', true );
-		$gallery_override = (string) get_post_meta( $product_id, '_cux_pdp_gallery_isolation', true );
-		$ux_blocks        = self::get_published_ux_blocks();
-		?>
-		<div class="options_group" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
-			<div style="padding: 10px 12px 4px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-				<strong style="color: #0f172a; font-size: 13px;">
-					<?php esc_html_e( 'Commerce UX Studio — Variation Display, Brand Sync, Card & Size Guide Details', 'commerce-ux-studio' ); ?>
-				</strong>
-				<?php if ( ! empty( $brand_info['name'] ) ) : ?>
-					<span style="background: #dcfce7; color: #166534; font-size: 11.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px;">
-						<?php
-						printf(
-							/* translators: %s: Synced WooCommerce Brand Name */
-							esc_html__( '✓ Synced WooCommerce Brand: %s', 'commerce-ux-studio' ),
-							esc_html( $brand_info['name'] )
-						);
-						?>
-					</span>
-				<?php else : ?>
-					<span style="background: #f1f5f9; color: #475569; font-size: 11.5px; padding: 2px 10px; border-radius: 999px;">
-						<?php esc_html_e( 'Tip: Assign a Brand in the right-hand "Product brands" box to auto-sync Brand headers & SEO Schema.', 'commerce-ux-studio' ); ?>
-					</span>
-				<?php endif; ?>
-			</div>
+		echo '<div class="options_group cux-general-fields-group" style="border-top: 1px solid #eee; padding-top: 10px;">';
+		echo '<p style="margin: 0 12px 8px; font-weight: 700; color: #1d2327;">' . esc_html__( 'Commerce UX Studio — Shop Card, Swatch & Header Settings', 'commerce-ux-studio' ) . '</p>';
 
-			<?php
-			wp_nonce_field( 'cux_native_wc_meta_action', 'cux_native_wc_meta_nonce' );
-
-			woocommerce_wp_select(
-				array(
-					'id'          => '_cux_product_swatch_mode',
-					'label'       => __( 'Colour / Visual Attribute Display', 'commerce-ux-studio' ),
-					'value'       => ! empty( $swatch_override ) ? $swatch_override : 'inherit',
-					'desc_tip'    => true,
-					'description' => __( 'Choose whether this product’s visual attribute (e.g. Colour / Finish) renders as a Variation Image tile, Custom Term Image, Colour Circle, or Text Button.', 'commerce-ux-studio' ),
-					'options'     => array(
-						'inherit'              => __( 'Follow Store / Attribute Default (Tab 1)', 'commerce-ux-studio' ),
-						'auto_variation_image' => __( 'Variation Image — Auto-use Variation Primary Photo (52×52px Tile)', 'commerce-ux-studio' ),
-						'term_image'           => __( 'Custom Attribute Image — Uploaded Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ),
-						'color_circle'         => __( 'Colour / Split / Gradient Circle (38×38px Swatch)', 'commerce-ux-studio' ),
-						'text_box'             => __( 'Text Button / Pill Box (Shows Attribute Value Text)', 'commerce-ux-studio' ),
-					),
-				)
-			);
-
-			woocommerce_wp_select(
-				array(
-					'id'          => '_cux_pdp_gallery_isolation',
-					'label'       => __( 'Product Page Gallery Mode', 'commerce-ux-studio' ),
-					'value'       => ! empty( $gallery_override ) ? $gallery_override : 'inherit',
-					'desc_tip'    => true,
-					'description' => __( 'Strict Selected Variation Only ensures the image gallery shows ONLY the selected variation’s image(s) and hides other variations.', 'commerce-ux-studio' ),
-					'options'     => array(
-						'inherit'          => __( 'Follow Store Default (Tab 1 / Tab 2)', 'commerce-ux-studio' ),
-						'strict_variation' => __( 'Strict Selected Variation Only (Show ONLY the selected variation’s images)', 'commerce-ux-studio' ),
-						'colorway_group'   => __( 'Colorway Group Gallery (Share extra gallery angles across sizes of the selected colour)', 'commerce-ux-studio' ),
-					),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_spec_subtitle',
-					'label'       => __( 'Card Spec Subtitle', 'commerce-ux-studio' ),
-					'placeholder' => __( 'e.g., Shimano Dura-Ace Di2 or SRAM RED AXS', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Shown below the product title on Shop Cards (and as a clean 1-line subtitle on Single Product pages when Option 2A is active).', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_spec_subtitle', true ),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_badge_tl',
-					'label'       => __( 'Top-Left Card Badge', 'commerce-ux-studio' ),
-					'placeholder' => __( 'e.g., Award Winning or New Arrival', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Overlaid as a corner badge pill on the product image frame (never clutters the Single Product title/price area).', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_badge_tl', true ),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_badge_tr',
-					'label'       => __( 'Top-Right Spec Label', 'commerce-ux-studio' ),
-					'placeholder' => __( 'e.g., DISC', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Overlaid in the top-right corner of the product image frame.', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_badge_tr', true ),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_tagline',
-					'label'       => __( 'Custom Tagline (Optional)', 'commerce-ux-studio' ),
-					'placeholder' => ! empty( $brand_info['name'] )
-						? sprintf(
-							/* translators: %s: Synced WooCommerce Brand Name */
-							__( 'Leave blank to auto-use "%s" (or enter custom tagline)', 'commerce-ux-studio' ),
-							$brand_info['name']
-						)
-						: __( 'Leave blank to auto-use WooCommerce Brand (e.g., AMPLIFY EVERY EMOTION)', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Leave blank to automatically display the assigned WooCommerce Brand on Showroom Cards, or enter a custom model tagline.', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_tagline', true ),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_financing_text',
-					'label'       => __( 'Monthly Financing Text', 'commerce-ux-studio' ),
-					'placeholder' => __( 'e.g., 0% APR or as low as $364/mo', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Optional installment note shown beneath the price on shop cards.', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_financing_text', true ),
-				)
-			);
-
-			woocommerce_wp_text_input(
-				array(
-					'id'          => '_cux_size_guide_id',
-					'label'       => __( 'Size Guide UX Block', 'commerce-ux-studio' ),
-					'placeholder' => __( 'Paste [block id="..."], UX Block slug, or leave blank for default', 'commerce-ux-studio' ),
-					'desc_tip'    => true,
-					'description' => __( 'Accepts a full Flatsome shortcode ([block id="specialized-helmet-sizing-chart"]), a UX Block slug, or a numeric ID. Opens inside a centered popup modal when shoppers click "? Size Guide".', 'commerce-ux-studio' ),
-					'value'       => $saved_size_guide,
-				)
-			);
-
-			if ( ! empty( $ux_blocks ) ) :
-				?>
-				<p class="form-field" style="margin-top: -8px;">
-					<label for="cux_ux_block_quick_picker"><?php esc_html_e( 'Quick-Pick UX Block', 'commerce-ux-studio' ); ?></label>
-					<select id="cux_ux_block_quick_picker" style="max-width: 50%;" onchange="if(this.value){document.getElementById('_cux_size_guide_id').value='[block id=&quot;'+this.value+'&quot;]';}">
-						<option value=""><?php esc_html_e( '— Select a published Flatsome UX Block to auto-fill above —', 'commerce-ux-studio' ); ?></option>
-						<?php foreach ( $ux_blocks as $b_slug => $b_title ) : ?>
-							<option value="<?php echo esc_attr( $b_slug ); ?>">
-								<?php echo esc_html( $b_title . ' (' . $b_slug . ')' ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</p>
-			<?php endif; ?>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Fetch published Flatsome `blocks` posts for the Quick-Pick dropdown.
-	 *
-	 * @return array<string, string> Map of post_name => post_title.
-	 */
-	private static function get_published_ux_blocks(): array {
-		if ( ! post_type_exists( 'blocks' ) ) {
-			return array();
+		if ( ! empty( $brand_info['name'] ) ) {
+			echo '<p style="margin: 0 12px 10px; padding: 6px 10px; background: #ecfdf5; border-left: 3px solid #10b981; color: #065f46; font-size: 12px;">';
+			echo '<strong>✓ ' . esc_html__( 'Synced WooCommerce Brand:', 'commerce-ux-studio' ) . '</strong> ' . esc_html( $brand_info['name'] );
+			echo '</p>';
 		}
 
-		$posts = get_posts(
+		woocommerce_wp_select(
 			array(
-				'post_type'      => 'blocks',
-				'post_status'    => 'publish',
-				'posts_per_page' => 100,
-				'orderby'        => 'title',
-				'order'          => 'ASC',
+				'id'          => '_cux_product_swatch_mode',
+				'label'       => __( 'Visual Attribute Display', 'commerce-ux-studio' ),
+				'description' => __( 'Choose whether visual attributes (e.g., Colour) display as Variation Photos, Colour Circles, or Text Buttons on this product.', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'value'       => get_post_meta( $product_id, '_cux_product_swatch_mode', true ) ?: 'inherit',
+				'options'     => array(
+					'inherit'              => __( 'Follow Store Default (Commerce UX Studio > Look & Feel)', 'commerce-ux-studio' ),
+					'auto_variation_image' => __( 'Variation Image — Auto-use Variation Primary Photo (52×52px)', 'commerce-ux-studio' ),
+					'term_image'           => __( 'Custom Attribute Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ),
+					'color_circle'         => __( 'Colour / Split / Gradient Circle (38×38px)', 'commerce-ux-studio' ),
+					'text_box'             => __( 'Text Button / Pill Box', 'commerce-ux-studio' ),
+				),
 			)
 		);
 
-		$options = array();
-		if ( is_array( $posts ) ) {
-			foreach ( $posts as $p ) {
-				if ( is_object( $p ) && ! empty( $p->post_name ) ) {
-					$options[ (string) $p->post_name ] = (string) $p->post_title;
-				}
-			}
+		woocommerce_wp_select(
+			array(
+				'id'          => '_cux_pdp_gallery_isolation',
+				'label'       => __( 'Product Gallery Isolation', 'commerce-ux-studio' ),
+				'description' => __( 'Strict Selected Variation Only displays ONLY the selected variation photo(s) in the gallery.', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'value'       => get_post_meta( $product_id, '_cux_pdp_gallery_isolation', true ) ?: 'inherit',
+				'options'     => array(
+					'inherit'          => __( 'Follow Store Default', 'commerce-ux-studio' ),
+					'strict_variation' => __( 'Strict Selected Variation Only (Hide other variations)', 'commerce-ux-studio' ),
+					'colorway_group'   => __( 'Colorway Group Gallery (Share angles across sizes of selected colour)', 'commerce-ux-studio' ),
+				),
+			)
+		);
+
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_cux_spec_subtitle',
+				'label'       => __( 'Card Spec Subtitle', 'commerce-ux-studio' ),
+				'placeholder' => __( 'e.g., Shimano Dura-Ace Di2 or Carbon Frame', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'description' => __( 'Shown below the product title on Shop Cards (and optionally above price on the Product Page).', 'commerce-ux-studio' ),
+			)
+		);
+
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_cux_badge_left',
+				'label'       => __( 'Top-Left Card Badge', 'commerce-ux-studio' ),
+				'placeholder' => __( 'e.g., Award Winning or New Arrival', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'description' => __( 'Displayed in the top-left corner of the Shop Card image.', 'commerce-ux-studio' ),
+			)
+		);
+
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_cux_badge_right',
+				'label'       => __( 'Top-Right Spec Label', 'commerce-ux-studio' ),
+				'placeholder' => __( 'e.g., DISC', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'description' => __( 'Displayed in the top-right corner of Minimalist Showroom cards.', 'commerce-ux-studio' ),
+			)
+		);
+
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_cux_brand_tagline',
+				'label'       => __( 'Custom Brand / Tagline', 'commerce-ux-studio' ),
+				'placeholder' => __( 'Leave blank to auto-use Synced WooCommerce Brand', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'description' => __( 'Optional override. If left blank, the assigned WooCommerce Brand is used automatically.', 'commerce-ux-studio' ),
+			)
+		);
+
+		$saved_guide = (string) get_post_meta( $product_id, '_cux_size_guide_block', true );
+		if ( '' === $saved_guide ) {
+			$saved_guide = (string) get_post_meta( $product_id, '_cux_size_guide', true );
 		}
 
-		return $options;
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_cux_size_guide_block',
+				'value'       => $saved_guide,
+				'label'       => __( 'Size Guide UX Block', 'commerce-ux-studio' ),
+				'placeholder' => __( 'e.g., [block id="size-guide"] or block slug', 'commerce-ux-studio' ),
+				'desc_tip'    => true,
+				'description' => __( 'Paste a Flatsome UX Block shortcode [block id="..."] or slug to open inside a popup modal when shoppers click "? Size Guide".', 'commerce-ux-studio' ),
+			)
+		);
+
+		echo '</div>';
 	}
 
 	/**
-	 * 2. Render the "Lock Main Image" checkbox inside WooCommerce's native "Inventory" tab.
+	 * Render Hero Image Lock checkbox inside Product data > Inventory.
 	 */
 	public static function render_inventory_tab_fields(): void {
-		global $post;
-		$product_id = $post ? (int) $post->ID : 0;
-		$hero_lock  = (string) get_post_meta( $product_id, '_cux_hero_lock', true );
-
+		echo '<div class="options_group">';
 		woocommerce_wp_checkbox(
 			array(
 				'id'          => '_cux_hero_lock',
-				'label'       => __( 'Lock Main Image', 'commerce-ux-studio' ),
-				'description' => __( 'Keep my manually uploaded Product Image even when variation stock changes (Default variation selection will still auto-update to highest stock).', 'commerce-ux-studio' ),
-				'value'       => 'yes' === $hero_lock ? 'yes' : 'no',
+				'label'       => __( 'Lock Main Product Image', 'commerce-ux-studio' ),
+				'description' => __( 'Keep my manually uploaded Main Product Image even when variation stock changes.', 'commerce-ux-studio' ),
 			)
 		);
+		echo '</div>';
 	}
 
 	/**
-	 * Save parent product fields from the General and Inventory tabs.
+	 * Save parent product custom fields safely.
 	 *
-	 * @param int $product_id Parent Product ID.
+	 * @param WC_Product $product Product object.
 	 */
-	public static function save_parent_product_fields( int $product_id ): void {
-		if ( ! isset( $_POST['cux_native_wc_meta_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['cux_native_wc_meta_nonce'] ) ), 'cux_native_wc_meta_action' ) ) {
-			return;
-		}
-
-		if ( ! current_user_can( 'edit_post', $product_id ) ) {
+	public static function save_parent_product_fields( $product ): void {
+		if ( ! ( $product instanceof WC_Product ) ) {
 			return;
 		}
 
@@ -287,254 +167,100 @@ class CUX_Native_WC_Fields {
 			'_cux_product_swatch_mode',
 			'_cux_pdp_gallery_isolation',
 			'_cux_spec_subtitle',
-			'_cux_badge_tl',
-			'_cux_badge_tr',
-			'_cux_tagline',
-			'_cux_financing_text',
-			'_cux_size_guide_id',
+			'_cux_badge_left',
+			'_cux_badge_right',
+			'_cux_brand_tagline',
+			'_cux_size_guide_block',
 		);
 
 		foreach ( $text_fields as $meta_key ) {
-			if ( isset( $_POST[ $meta_key ] ) ) {
-				update_post_meta( $product_id, $meta_key, sanitize_text_field( wp_unslash( $_POST[ $meta_key ] ) ) );
+			if ( isset( $_POST[ $meta_key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				$val = sanitize_text_field( wp_unslash( (string) $_POST[ $meta_key ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				$product->update_meta_data( $meta_key, $val );
+				if ( '_cux_size_guide_block' === $meta_key ) {
+					$product->update_meta_data( '_cux_size_guide', $val );
+				}
 			}
 		}
 
-		$hero_lock = isset( $_POST['_cux_hero_lock'] ) ? 'yes' : 'no';
-		update_post_meta( $product_id, '_cux_hero_lock', $hero_lock );
+		$hero_lock = isset( $_POST['_cux_hero_lock'] ) ? 'yes' : 'no'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$product->update_meta_data( '_cux_hero_lock', $hero_lock );
 	}
 
 	/**
-	 * 3A. Render a friendly guide banner at the top of the Variations tab so beginners know how Autopilot works.
+	 * Render helpful autopilot tip banner on the first variation row.
+	 *
+	 * @param int     $loop           Variation loop index.
+	 * @param array   $variation_data Variation data.
+	 * @param WP_Post $variation      Variation post object.
 	 */
-	public static function render_variations_autopilot_banner(): void {
+	public static function render_variation_autopilot_banner( $loop, $variation_data, $variation ): void {
+		if ( 0 !== (int) $loop ) {
+			return;
+		}
 		?>
-		<div style="margin: 12px 16px; padding: 12px 16px; background: #f0f6fc; border-left: 4px solid #2271b1; border-radius: 4px; font-size: 13px; color: #1d2327;">
+		<div style="margin: 8px 0 12px; padding: 10px 14px; background: #f0f6fc; border-left: 4px solid #2271b1; border-radius: 4px; font-size: 12.5px; color: #1d2327;">
 			<strong><?php esc_html_e( 'Smart Gallery & Stock Autopilot is Active:', 'commerce-ux-studio' ); ?></strong>
-			<?php esc_html_e( 'You only need to upload a main photo and "Variation gallery" images to ONE size of each color below. When you click "Save changes", Autopilot will automatically copy those photos to the other sizes of that color and set the highest-stock color as the main product image!', 'commerce-ux-studio' ); ?>
+			<?php esc_html_e( 'Upload a main photo and "Variation gallery" images to ONE size of each color. When you click "Save changes", Autopilot automatically copies those photos to the other sizes of that color and promotes the highest-stock color as the main product image.', 'commerce-ux-studio' ); ?>
 		</div>
 		<?php
 	}
 
 	/**
-	 * 3B. Render simple In-Store Pickup & Backorder Date inputs inside each variation (right below pricing).
+	 * Render optional per-variation In-Store Pickup status and Backorder Restock ETA fields.
 	 *
-	 * @param int   $loop           Variation loop index.
-	 * @param array $variation_data Variation data array.
-	 * @param mixed $variation      Variation post object.
+	 * @param int     $loop           Variation loop index.
+	 * @param array   $variation_data Variation data.
+	 * @param WP_Post $variation      Variation post object.
 	 */
-	public static function render_variation_fields( $loop, $variation_data, $variation ): void {
-		$variation_id = is_object( $variation ) && isset( $variation->ID ) ? (int) $variation->ID : 0;
-		if ( ! $variation_id ) {
+	public static function render_variation_fulfilment_fields( $loop, $variation_data, $variation ): void {
+		$var_id = isset( $variation->ID ) ? (int) $variation->ID : 0;
+		if ( $var_id <= 0 ) {
 			return;
 		}
 
-		$pickup_status = (string) get_post_meta( $variation_id, '_cux_pickup_status', true );
-		$restock_eta   = (string) get_post_meta( $variation_id, '_cux_restock_eta', true );
+		$pickup_status = (string) get_post_meta( $var_id, '_cux_pickup_status', true );
+		$restock_eta   = (string) get_post_meta( $var_id, '_cux_restock_eta', true );
 		?>
-		<div class="form-row form-row-full" style="clear: both; margin: 10px 0; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
-			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-				<p class="form-row form-row-first" style="margin: 0;">
-					<label><?php esc_html_e( 'Showroom In-Store Pickup Status:', 'commerce-ux-studio' ); ?></label>
-					<select name="cux_pickup_status[<?php echo esc_attr( (string) $loop ); ?>]">
-						<option value="ship_to_store" <?php selected( $pickup_status, 'ship_to_store' ); ?>><?php esc_html_e( 'Ship to Store (Default Lead Time)', 'commerce-ux-studio' ); ?></option>
-						<option value="ready_today" <?php selected( $pickup_status, 'ready_today' ); ?>><?php esc_html_e( 'Get It Today (In Stock at Showroom)', 'commerce-ux-studio' ); ?></option>
-						<option value="unavailable" <?php selected( $pickup_status, 'unavailable' ); ?>><?php esc_html_e( 'Not Available for In-Store Pickup', 'commerce-ux-studio' ); ?></option>
-					</select>
-				</p>
-
-				<p class="form-row form-row-last" style="margin: 0;">
-					<label><?php esc_html_e( 'Backorder / Restock Date (Optional):', 'commerce-ux-studio' ); ?></label>
-					<input type="text" name="cux_restock_eta[<?php echo esc_attr( (string) $loop ); ?>]" value="<?php echo esc_attr( $restock_eta ); ?>" placeholder="<?php esc_attr_e( 'e.g., 24th Oct', 'commerce-ux-studio' ); ?>" />
-				</p>
-			</div>
+		<div class="form-row form-row-first">
+			<label><?php esc_html_e( 'Showroom In-Store Pickup Status:', 'commerce-ux-studio' ); ?></label>
+			<select name="cux_var_pickup_status[<?php echo esc_attr( (string) $loop ); ?>]">
+				<option value="inherit" <?php selected( $pickup_status, 'inherit' ); ?>><?php esc_html_e( 'Follow Store Default', 'commerce-ux-studio' ); ?></option>
+				<option value="ready_today" <?php selected( $pickup_status, 'ready_today' ); ?>><?php esc_html_e( 'Ready Today — In Stock at Showroom', 'commerce-ux-studio' ); ?></option>
+				<option value="unavailable" <?php selected( $pickup_status, 'unavailable' ); ?>><?php esc_html_e( 'Unavailable for In-Store Pickup', 'commerce-ux-studio' ); ?></option>
+			</select>
+		</div>
+		<div class="form-row form-row-last">
+			<label><?php esc_html_e( 'Backorder / Restock Date (Optional):', 'commerce-ux-studio' ); ?></label>
+			<input type="text" name="cux_var_restock_eta[<?php echo esc_attr( (string) $loop ); ?>]" value="<?php echo esc_attr( $restock_eta ); ?>" placeholder="<?php esc_attr_e( 'e.g., 24th Nov', 'commerce-ux-studio' ); ?>" />
 		</div>
 		<?php
 	}
 
 	/**
-	 * Save variation In-Store Pickup Status, Restock Date, and bridge WooCommerce 11.1+ / Flatsome variation galleries.
+	 * Save per-variation fulfilment fields.
 	 *
 	 * @param int $variation_id Variation ID.
-	 * @param int $i            Variation loop index.
+	 * @param int $loop         Loop index.
 	 */
-	public static function save_variation_fields( $variation_id, $i ): void {
+	public static function save_variation_fulfilment_fields( $variation_id, $loop ): void {
 		$variation_id = (int) $variation_id;
-		if ( ! current_user_can( 'edit_post', $variation_id ) ) {
-			return;
+		$loop         = (int) $loop;
+
+		if ( isset( $_POST['cux_var_pickup_status'][ $loop ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_post_meta(
+				$variation_id,
+				'_cux_pickup_status',
+				sanitize_key( wp_unslash( (string) $_POST['cux_var_pickup_status'][ $loop ] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			);
 		}
 
-		if ( isset( $_POST['cux_pickup_status'][ $i ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_post_meta( $variation_id, '_cux_pickup_status', sanitize_key( wp_unslash( $_POST['cux_pickup_status'][ $i ] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( isset( $_POST['cux_var_restock_eta'][ $loop ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_post_meta(
+				$variation_id,
+				'_cux_restock_eta',
+				sanitize_text_field( wp_unslash( (string) $_POST['cux_var_restock_eta'][ $loop ] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			);
 		}
-
-		if ( isset( $_POST['cux_restock_eta'][ $i ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_post_meta( $variation_id, '_cux_restock_eta', sanitize_text_field( wp_unslash( $_POST['cux_restock_eta'][ $i ] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		}
-
-		// Sync WooCommerce 11.1+ native `_product_image_gallery`, Flatsome `_wc_additional_variation_images`, and `_wc_variation_gallery_ids`.
-		$wc_native_gallery = (string) get_post_meta( $variation_id, '_product_image_gallery', true );
-		$flatsome_gallery  = (string) get_post_meta( $variation_id, '_wc_additional_variation_images', true );
-		$cux_gallery       = (string) get_post_meta( $variation_id, '_wc_variation_gallery_ids', true );
-
-		$active_gallery = ! empty( $wc_native_gallery ) ? $wc_native_gallery : ( ! empty( $flatsome_gallery ) ? $flatsome_gallery : $cux_gallery );
-		if ( ! empty( $active_gallery ) ) {
-			update_post_meta( $variation_id, '_product_image_gallery', $active_gallery );
-			update_post_meta( $variation_id, '_wc_additional_variation_images', $active_gallery );
-			update_post_meta( $variation_id, '_wc_variation_gallery_ids', $active_gallery );
-		}
-	}
-
-	/**
-	 * 4A. Render Quick Edit fields on the Products list screen.
-	 */
-	public static function render_quick_edit_fields(): void {
-		?>
-		<br class="clear" />
-		<div class="inline-edit-group">
-			<label class="alignleft">
-				<span class="title"><?php esc_html_e( 'Spec Subtitle', 'commerce-ux-studio' ); ?></span>
-				<span class="input-text-wrap">
-					<input type="text" name="_cux_spec_subtitle" class="text cux_spec_subtitle" placeholder="e.g., SRAM RED AXS" value="" />
-				</span>
-			</label>
-		</div>
-		<div class="inline-edit-group">
-			<label class="alignleft">
-				<span class="title"><?php esc_html_e( 'Card Badge', 'commerce-ux-studio' ); ?></span>
-				<span class="input-text-wrap">
-					<input type="text" name="_cux_badge_tl" class="text cux_badge_tl" placeholder="e.g., Award Winning" value="" />
-				</span>
-			</label>
-			<label class="alignleft" style="margin-left: 16px;">
-				<span class="title"><?php esc_html_e( 'Corner Spec', 'commerce-ux-studio' ); ?></span>
-				<span class="input-text-wrap">
-					<input type="text" name="_cux_badge_tr" class="text cux_badge_tr" placeholder="e.g., DISC" value="" />
-				</span>
-			</label>
-		</div>
-		<div class="inline-edit-group">
-			<label class="alignleft">
-				<input type="checkbox" name="_cux_hero_lock" class="cux_hero_lock" value="yes" />
-				<span class="checkbox-title"><?php esc_html_e( 'Lock Main Image (Keep manual image when stock changes)', 'commerce-ux-studio' ); ?></span>
-			</label>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Save Quick Edit fields.
-	 *
-	 * @param WC_Product $product Product object.
-	 */
-	public static function save_quick_edit_fields( $product ): void {
-		$product_id = $product->get_id();
-		if ( ! current_user_can( 'edit_post', $product_id ) ) {
-			return;
-		}
-
-		if ( isset( $_REQUEST['_cux_spec_subtitle'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			update_post_meta( $product_id, '_cux_spec_subtitle', sanitize_text_field( wp_unslash( $_REQUEST['_cux_spec_subtitle'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		}
-		if ( isset( $_REQUEST['_cux_badge_tl'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			update_post_meta( $product_id, '_cux_badge_tl', sanitize_text_field( wp_unslash( $_REQUEST['_cux_badge_tl'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		}
-		if ( isset( $_REQUEST['_cux_badge_tr'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			update_post_meta( $product_id, '_cux_badge_tr', sanitize_text_field( wp_unslash( $_REQUEST['_cux_badge_tr'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		}
-
-		$hero_lock = isset( $_REQUEST['_cux_hero_lock'] ) ? 'yes' : 'no'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		update_post_meta( $product_id, '_cux_hero_lock', $hero_lock );
-	}
-
-	/**
-	 * Output hidden data attributes inside the Product Name column for Quick Edit population.
-	 *
-	 * @param string $column  Column slug.
-	 * @param int    $post_id Product ID.
-	 */
-	public static function render_hidden_quick_edit_data( string $column, int $post_id ): void {
-		if ( 'name' !== $column ) {
-			return;
-		}
-		?>
-		<div class="hidden" id="cux_inline_<?php echo esc_attr( (string) $post_id ); ?>"
-			data-subtitle="<?php echo esc_attr( (string) get_post_meta( $post_id, '_cux_spec_subtitle', true ) ); ?>"
-			data-badge-tl="<?php echo esc_attr( (string) get_post_meta( $post_id, '_cux_badge_tl', true ) ); ?>"
-			data-badge-tr="<?php echo esc_attr( (string) get_post_meta( $post_id, '_cux_badge_tr', true ) ); ?>"
-			data-hero-lock="<?php echo esc_attr( (string) get_post_meta( $post_id, '_cux_hero_lock', true ) ); ?>">
-		</div>
-		<?php
-	}
-
-	/**
-	 * Populate Quick Edit inputs when clicking "Quick Edit" on the Products list screen.
-	 */
-	public static function quick_edit_populate_js(): void {
-		$screen = get_current_screen();
-		if ( ! $screen || 'edit-product' !== $screen->id ) {
-			return;
-		}
-		?>
-		<script>
-		jQuery(function($){
-			$('#the-list').on('click', '.editinline', function(){
-				var postId = $(this).closest('tr').attr('id');
-				postId = postId ? postId.replace('post-', '') : '';
-				if (!postId) return;
-
-				var $data = $('#cux_inline_' + postId);
-				var $editRow = $('#edit-' + postId);
-
-				$editRow.find('.cux_spec_subtitle').val($data.data('subtitle') || '');
-				$editRow.find('.cux_badge_tl').val($data.data('badge-tl') || '');
-				$editRow.find('.cux_badge_tr').val($data.data('badge-tr') || '');
-				$editRow.find('.cux_hero_lock').prop('checked', $data.data('hero-lock') === 'yes');
-			});
-		});
-		</script>
-		<?php
-	}
-
-	/**
-	 * 4B. Register Commerce UX Studio fields in the native WooCommerce CSV Importer mapping dropdown.
-	 *
-	 * @param array $options Existing CSV mapping options.
-	 * @return array
-	 */
-	public static function register_csv_mapping_options( array $options ): array {
-		$options['cux_studio_group'] = array(
-			'name'    => __( 'Commerce UX Studio', 'commerce-ux-studio' ),
-			'options' => array(
-				'meta:_product_image_gallery' => __( 'CUX: Variation Gallery Image IDs', 'commerce-ux-studio' ),
-				'meta:_cux_spec_subtitle'     => __( 'CUX: Card Spec Subtitle (e.g., Dura-Ace Di2)', 'commerce-ux-studio' ),
-				'meta:_cux_badge_tl'          => __( 'CUX: Top-Left Card Badge (Award Winning)', 'commerce-ux-studio' ),
-				'meta:_cux_badge_tr'          => __( 'CUX: Top-Right Spec Label (DISC)', 'commerce-ux-studio' ),
-				'meta:_cux_tagline'           => __( 'CUX: Brand / Model Tagline', 'commerce-ux-studio' ),
-				'meta:_cux_financing_text'    => __( 'CUX: Monthly Financing Text', 'commerce-ux-studio' ),
-				'meta:_cux_hero_lock'         => __( 'CUX: Lock Main Image (yes/no)', 'commerce-ux-studio' ),
-				'meta:_cux_pickup_status'     => __( 'CUX: Showroom Pickup Status (ship_to_store / ready_today)', 'commerce-ux-studio' ),
-				'meta:_cux_restock_eta'       => __( 'CUX: Backorder Restock Date', 'commerce-ux-studio' ),
-			),
-		);
-		return $options;
-	}
-
-	/**
-	 * Auto-map CSV column headers during product/variation CSV import.
-	 *
-	 * @param array $columns Default header-to-field map.
-	 * @return array
-	 */
-	public static function register_csv_default_columns( array $columns ): array {
-		$columns['CUX Variation Gallery'] = 'meta:_product_image_gallery';
-		$columns['CUX Spec Subtitle']     = 'meta:_cux_spec_subtitle';
-		$columns['CUX Top Left Badge']    = 'meta:_cux_badge_tl';
-		$columns['CUX Top Right Spec']    = 'meta:_cux_badge_tr';
-		$columns['CUX Tagline']           = 'meta:_cux_tagline';
-		$columns['CUX Hero Lock']         = 'meta:_cux_hero_lock';
-		$columns['CUX Pickup Status']     = 'meta:_cux_pickup_status';
-		$columns['CUX Restock ETA']       = 'meta:_cux_restock_eta';
-		return $columns;
 	}
 }
