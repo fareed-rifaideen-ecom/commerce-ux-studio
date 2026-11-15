@@ -1,6 +1,8 @@
 <?php
 /**
- * Product Category (`product_cat`) & Product Tag (`product_tag`) Custom Fields.
+ * Product Category (`product_cat`) & Product Tag (`product_tag`) Custom Fields (v2.3.2).
+ *
+ * File Path: includes/admin/class-cux-taxonomy-fields.php
  *
  * Powers Tier 3 of the 4-Tier Inheritance Engine:
  * - Category Card Layout Preset (Specialized, Pinarello, Zara Quick-Add, or Inherit)
@@ -10,6 +12,7 @@
  * - Product Tag Auto-Badge Text, Pre-Order Sync Toggle & Campaign Atmosphere Overrides
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -48,9 +51,9 @@ class CUX_Taxonomy_Fields {
 			<label for="cux_cat_card_preset"><?php esc_html_e( 'Commerce UX: Category Card Preset', 'commerce-ux-studio' ); ?></label>
 			<select name="cux_cat_card_preset" id="cux_cat_card_preset">
 				<option value="inherit"><?php esc_html_e( 'Inherit Global Store Default', 'commerce-ux-studio' ); ?></option>
-				<option value="specialized_spec"><?php esc_html_e( 'Specialized Technical Spec Card (Dual-color swatches, Compare box, Spec subtitle)', 'commerce-ux-studio' ); ?></option>
-				<option value="pinarello_showroom"><?php esc_html_e( 'Pinarello Minimalist Showroom Card (Overlaid metallic swatches, DISC corner text)', 'commerce-ux-studio' ); ?></option>
-				<option value="zara_quick_add"><?php esc_html_e( 'Zara Apparel Quick-Add Card (Hover size selector)', 'commerce-ux-studio' ); ?></option>
+				<option value="specialized_spec"><?php esc_html_e( 'Style A: Technical Spec Card (Dual-color swatches, Compare box, Spec subtitle)', 'commerce-ux-studio' ); ?></option>
+				<option value="pinarello_showroom"><?php esc_html_e( 'Style B: Minimalist Showroom Card (Overlaid metallic swatches, DISC corner text)', 'commerce-ux-studio' ); ?></option>
+				<option value="zara_quick_add"><?php esc_html_e( 'Style C: Apparel Quick-Add Card (Hover size selector)', 'commerce-ux-studio' ); ?></option>
 			</select>
 		</div>
 
@@ -64,8 +67,8 @@ class CUX_Taxonomy_Fields {
 		</div>
 
 		<div class="form-field">
-			<label for="cux_cat_size_guide_id"><?php esc_html_e( 'Commerce UX: Default Size Guide (UX Block Slug or ID)', 'commerce-ux-studio' ); ?></label>
-			<input type="text" name="cux_cat_size_guide_id" id="cux_cat_size_guide_id" placeholder="e.g., bike-size-guide" />
+			<label for="cux_cat_size_guide_id"><?php esc_html_e( 'Commerce UX: Default Size Guide (UX Block Shortcode, Slug or ID)', 'commerce-ux-studio' ); ?></label>
+			<input type="text" name="cux_cat_size_guide_id" id="cux_cat_size_guide_id" placeholder='e.g., [block id="bike-size-guide"] or slug' />
 		</div>
 		<?php
 	}
@@ -73,13 +76,21 @@ class CUX_Taxonomy_Fields {
 	/**
 	 * Render Category UX Studio fields on the Edit Category screen.
 	 *
-	 * @param WP_Term $term Current category term.
+	 * @param WP_Term $term     Current category term.
+	 * @param string  $taxonomy Current taxonomy slug.
 	 */
-	public static function render_edit_category_fields( WP_Term $term ): void {
-		$preset     = (string) get_term_meta( $term->term_id, '_cux_cat_card_preset', true );
-		$hover_mode = (string) get_term_meta( $term->term_id, '_cux_cat_hover_mode', true );
-		$size_guide = (string) get_term_meta( $term->term_id, '_cux_cat_size_guide_id', true );
-		$fulfilment = get_term_meta( $term->term_id, '_cux_cat_fulfilment', true );
+	public static function render_edit_category_fields( $term, $taxonomy = '' ): void {
+		if ( ! is_object( $term ) || empty( $term->term_id ) ) {
+			return;
+		}
+		$term_id    = (int) $term->term_id;
+		$preset     = (string) get_term_meta( $term_id, '_cux_cat_card_preset', true );
+		$hover_mode = (string) get_term_meta( $term_id, '_cux_cat_hover_mode', true );
+		$size_guide = (string) get_term_meta( $term_id, '_cux_cat_size_guide_id', true );
+		if ( '' === $size_guide ) {
+			$size_guide = (string) get_term_meta( $term_id, '_cux_cat_size_guide', true );
+		}
+		$fulfilment = get_term_meta( $term_id, '_cux_cat_fulfilment', true );
 		if ( ! is_array( $fulfilment ) ) {
 			$fulfilment = array();
 		}
@@ -89,9 +100,9 @@ class CUX_Taxonomy_Fields {
 			<td>
 				<select name="cux_cat_card_preset" id="cux_cat_card_preset">
 					<option value="inherit" <?php selected( $preset, 'inherit' ); ?>><?php esc_html_e( 'Inherit Global Store Default', 'commerce-ux-studio' ); ?></option>
-					<option value="specialized_spec" <?php selected( $preset, 'specialized_spec' ); ?>><?php esc_html_e( 'Specialized Technical Spec Card (Dual-color swatches, Compare box, Spec subtitle)', 'commerce-ux-studio' ); ?></option>
-					<option value="pinarello_showroom" <?php selected( $preset, 'pinarello_showroom' ); ?>><?php esc_html_e( 'Pinarello Minimalist Showroom Card (Overlaid metallic swatches, DISC corner text)', 'commerce-ux-studio' ); ?></option>
-					<option value="zara_quick_add" <?php selected( $preset, 'zara_quick_add' ); ?>><?php esc_html_e( 'Zara Apparel Quick-Add Card (Hover size selector)', 'commerce-ux-studio' ); ?></option>
+					<option value="specialized_spec" <?php selected( $preset, 'specialized_spec' ); ?>><?php esc_html_e( 'Style A: Technical Spec Card (Dual-color swatches, Compare box, Spec subtitle)', 'commerce-ux-studio' ); ?></option>
+					<option value="pinarello_showroom" <?php selected( $preset, 'pinarello_showroom' ); ?>><?php esc_html_e( 'Style B: Minimalist Showroom Card (Overlaid metallic swatches, DISC corner text)', 'commerce-ux-studio' ); ?></option>
+					<option value="zara_quick_add" <?php selected( $preset, 'zara_quick_add' ); ?>><?php esc_html_e( 'Style C: Apparel Quick-Add Card (Hover size selector)', 'commerce-ux-studio' ); ?></option>
 				</select>
 			</td>
 		</tr>
@@ -108,10 +119,10 @@ class CUX_Taxonomy_Fields {
 		</tr>
 
 		<tr class="form-field">
-			<th scope="row" valign="top"><label for="cux_cat_size_guide_id"><?php esc_html_e( 'Commerce UX: Default Size Guide (UX Block Slug or ID)', 'commerce-ux-studio' ); ?></label></th>
+			<th scope="row" valign="top"><label for="cux_cat_size_guide_id"><?php esc_html_e( 'Commerce UX: Default Size Guide (UX Block Shortcode, Slug or ID)', 'commerce-ux-studio' ); ?></label></th>
 			<td>
-				<input type="text" name="cux_cat_size_guide_id" id="cux_cat_size_guide_id" value="<?php echo esc_attr( $size_guide ); ?>" class="regular-text" placeholder="e.g., road-bike-geometry" />
-				<p class="description"><?php esc_html_e( 'Flatsome UX Block slug or ID opened when clicking "Size Guide" on products in this category.', 'commerce-ux-studio' ); ?></p>
+				<input type="text" name="cux_cat_size_guide_id" id="cux_cat_size_guide_id" value="<?php echo esc_attr( $size_guide ); ?>" class="regular-text" placeholder='e.g., [block id="road-bike-geometry"]' />
+				<p class="description"><?php esc_html_e( 'Flatsome UX Block shortcode, slug, or ID opened when clicking "Size Guide" on products in this category.', 'commerce-ux-studio' ); ?></p>
 			</td>
 		</tr>
 
@@ -143,19 +154,22 @@ class CUX_Taxonomy_Fields {
 	 *
 	 * @param int $term_id Category Term ID.
 	 */
-	public static function save_category_fields( int $term_id ): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+	public static function save_category_fields( $term_id ): void {
+		$term_id = (int) $term_id;
+		if ( $term_id <= 0 || ! current_user_can( 'manage_woocommerce' ) ) {
 			return;
 		}
 
 		if ( isset( $_POST['cux_cat_card_preset'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_cat_card_preset', sanitize_key( wp_unslash( $_POST['cux_cat_card_preset'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_cat_card_preset', sanitize_key( wp_unslash( (string) $_POST['cux_cat_card_preset'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_cat_hover_mode'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_cat_hover_mode', sanitize_key( wp_unslash( $_POST['cux_cat_hover_mode'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_cat_hover_mode', sanitize_key( wp_unslash( (string) $_POST['cux_cat_hover_mode'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_cat_size_guide_id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_cat_size_guide_id', sanitize_text_field( wp_unslash( $_POST['cux_cat_size_guide_id'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$guide_val = sanitize_text_field( wp_unslash( (string) $_POST['cux_cat_size_guide_id'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_cat_size_guide_id', $guide_val );
+			update_term_meta( $term_id, '_cux_cat_size_guide', $guide_val );
 		}
 		if ( isset( $_POST['cux_cat_fulfilment'] ) && is_array( $_POST['cux_cat_fulfilment'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$raw_fulfilment = wp_unslash( $_POST['cux_cat_fulfilment'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
@@ -180,11 +194,16 @@ class CUX_Taxonomy_Fields {
 	/**
 	 * Render Product Tag UX Studio fields on the Edit Tag screen.
 	 *
-	 * @param WP_Term $term Current tag term.
+	 * @param WP_Term $term     Current tag term.
+	 * @param string  $taxonomy Current taxonomy slug.
 	 */
-	public static function render_edit_tag_fields( WP_Term $term ): void {
-		$badge      = (string) get_term_meta( $term->term_id, '_cux_tag_badge_tl', true );
-		$atmosphere = get_term_meta( $term->term_id, '_cux_tag_atmosphere', true );
+	public static function render_edit_tag_fields( $term, $taxonomy = '' ): void {
+		if ( ! is_object( $term ) || empty( $term->term_id ) ) {
+			return;
+		}
+		$term_id    = (int) $term->term_id;
+		$badge      = (string) get_term_meta( $term_id, '_cux_tag_badge_tl', true );
+		$atmosphere = get_term_meta( $term_id, '_cux_tag_atmosphere', true );
 		if ( ! is_array( $atmosphere ) ) {
 			$atmosphere = array();
 		}
@@ -225,13 +244,14 @@ class CUX_Taxonomy_Fields {
 	 *
 	 * @param int $term_id Tag Term ID.
 	 */
-	public static function save_tag_fields( int $term_id ): void {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+	public static function save_tag_fields( $term_id ): void {
+		$term_id = (int) $term_id;
+		if ( $term_id <= 0 || ! current_user_can( 'manage_woocommerce' ) ) {
 			return;
 		}
 
 		if ( isset( $_POST['cux_tag_badge_tl'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			update_term_meta( $term_id, '_cux_tag_badge_tl', sanitize_text_field( wp_unslash( $_POST['cux_tag_badge_tl'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			update_term_meta( $term_id, '_cux_tag_badge_tl', sanitize_text_field( wp_unslash( (string) $_POST['cux_tag_badge_tl'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		}
 		if ( isset( $_POST['cux_tag_atmosphere'] ) && is_array( $_POST['cux_tag_atmosphere'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			$raw   = wp_unslash( $_POST['cux_tag_atmosphere'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
