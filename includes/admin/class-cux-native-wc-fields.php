@@ -1,16 +1,18 @@
 <?php
 /**
- * Native WooCommerce 11.3+ Fields Integration (Zero-Learning-Curve Client Edition).
+ * Native WooCommerce 11.3+ Fields Integration (v2.3 Universal Configurable Edition).
  *
  * File Path: includes/admin/class-cux-native-wc-fields.php
  *
  * Places simple, beginner-friendly inputs directly inside standard WooCommerce tabs:
- * 1. General Tab: Card Spec Subtitle, Tagline, Corner Badges (Award Winning / DISC), Financing & Size Guide.
+ * 1. General Tab: Card Spec Subtitle, Auto-Synced WooCommerce Brand / Tagline Override,
+ *    Shop Card Corner Badges (Award Winning / DISC), Monthly Financing & Flatsome UX Block Size Guide Picker.
  * 2. Inventory Tab: "Lock Main Image" checkbox (prevents stock autopilot from changing launch hero image).
  * 3. Variations Tab: Friendly Autopilot banner + simple In-Store Pickup Status & Backorder Date per variation.
  * 4. Quick Edit & Native WooCommerce CSV Importer mapping.
  *
  * @package Commerce_UX_Studio
+ * @author  Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -52,16 +54,41 @@ class CUX_Native_WC_Fields {
 	}
 
 	/**
-	 * 1. Render simple Card & Header fields inside WooCommerce's native "General" tab.
+	 * 1. Render simple Card, Brand Sync & Size Guide fields inside WooCommerce's native "General" tab.
 	 */
 	public static function render_general_tab_fields(): void {
 		global $post;
 		$product_id = $post ? (int) $post->ID : 0;
+
+		$brand_info = class_exists( 'CUX_Inheritance_Engine' )
+			? CUX_Inheritance_Engine::resolve_product_brand( $product_id )
+			: array( 'name' => '' );
+
+		$saved_size_guide = (string) get_post_meta( $product_id, '_cux_size_guide_id', true );
+		$ux_blocks        = self::get_published_ux_blocks();
 		?>
 		<div class="options_group" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
-			<p style="padding: 8px 12px 0; margin: 0; font-weight: 600; color: #1e293b;">
-				<?php esc_html_e( 'Commerce UX Studio — Shop Card & Product Header Details', 'commerce-ux-studio' ); ?>
-			</p>
+			<div style="padding: 10px 12px 4px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+				<strong style="color: #0f172a; font-size: 13px;">
+					<?php esc_html_e( 'Commerce UX Studio — Shop Card, Brand Sync & Size Guide Details', 'commerce-ux-studio' ); ?>
+				</strong>
+				<?php if ( ! empty( $brand_info['name'] ) ) : ?>
+					<span style="background: #dcfce7; color: #166534; font-size: 11.5px; font-weight: 600; padding: 2px 10px; border-radius: 999px;">
+						<?php
+						printf(
+							/* translators: %s: Synced WooCommerce Brand Name */
+							esc_html__( '✓ Synced WooCommerce Brand: %s', 'commerce-ux-studio' ),
+							esc_html( $brand_info['name'] )
+						);
+						?>
+					</span>
+				<?php else : ?>
+					<span style="background: #f1f5f9; color: #475569; font-size: 11.5px; padding: 2px 10px; border-radius: 999px;">
+						<?php esc_html_e( 'Tip: Assign a Brand in the right-hand "Product brands" box to auto-sync Brand headers & SEO Schema.', 'commerce-ux-studio' ); ?>
+					</span>
+				<?php endif; ?>
+			</div>
+
 			<?php
 			wp_nonce_field( 'cux_native_wc_meta_action', 'cux_native_wc_meta_nonce' );
 
@@ -71,7 +98,7 @@ class CUX_Native_WC_Fields {
 					'label'       => __( 'Card Spec Subtitle', 'commerce-ux-studio' ),
 					'placeholder' => __( 'e.g., Shimano Dura-Ace Di2 or SRAM RED AXS', 'commerce-ux-studio' ),
 					'desc_tip'    => true,
-					'description' => __( 'Shown directly below the product title on shop cards and single product pages.', 'commerce-ux-studio' ),
+					'description' => __( 'Shown below the product title on Shop Cards (and as a clean 1-line subtitle on Single Product pages when Option 2A is active).', 'commerce-ux-studio' ),
 					'value'       => (string) get_post_meta( $product_id, '_cux_spec_subtitle', true ),
 				)
 			);
@@ -82,7 +109,7 @@ class CUX_Native_WC_Fields {
 					'label'       => __( 'Top-Left Card Badge', 'commerce-ux-studio' ),
 					'placeholder' => __( 'e.g., Award Winning or New Arrival', 'commerce-ux-studio' ),
 					'desc_tip'    => true,
-					'description' => __( 'Optional badge pill displayed in the top-left corner of the product card.', 'commerce-ux-studio' ),
+					'description' => __( 'Overlaid as a corner badge pill on the product image frame (never clutters the Single Product title/price area).', 'commerce-ux-studio' ),
 					'value'       => (string) get_post_meta( $product_id, '_cux_badge_tl', true ),
 				)
 			);
@@ -93,7 +120,7 @@ class CUX_Native_WC_Fields {
 					'label'       => __( 'Top-Right Spec Label', 'commerce-ux-studio' ),
 					'placeholder' => __( 'e.g., DISC', 'commerce-ux-studio' ),
 					'desc_tip'    => true,
-					'description' => __( 'Optional short technical label in the top-right corner of the product card.', 'commerce-ux-studio' ),
+					'description' => __( 'Overlaid in the top-right corner of the product image frame.', 'commerce-ux-studio' ),
 					'value'       => (string) get_post_meta( $product_id, '_cux_badge_tr', true ),
 				)
 			);
@@ -101,10 +128,16 @@ class CUX_Native_WC_Fields {
 			woocommerce_wp_text_input(
 				array(
 					'id'          => '_cux_tagline',
-					'label'       => __( 'Brand / Model Tagline', 'commerce-ux-studio' ),
-					'placeholder' => __( 'e.g., AMPLIFY EVERY EMOTION', 'commerce-ux-studio' ),
+					'label'       => __( 'Custom Tagline (Optional)', 'commerce-ux-studio' ),
+					'placeholder' => ! empty( $brand_info['name'] )
+						? sprintf(
+							/* translators: %s: Synced WooCommerce Brand Name */
+							__( 'Leave blank to auto-use "%s" (or enter custom tagline)', 'commerce-ux-studio' ),
+							$brand_info['name']
+						)
+						: __( 'Leave blank to auto-use WooCommerce Brand (e.g., AMPLIFY EVERY EMOTION)', 'commerce-ux-studio' ),
 					'desc_tip'    => true,
-					'description' => __( 'Optional uppercase tagline displayed on Minimalist Showroom cards.', 'commerce-ux-studio' ),
+					'description' => __( 'Leave blank to automatically display the assigned WooCommerce Brand on Showroom Cards, or enter a custom model tagline.', 'commerce-ux-studio' ),
 					'value'       => (string) get_post_meta( $product_id, '_cux_tagline', true ),
 				)
 			);
@@ -124,15 +157,61 @@ class CUX_Native_WC_Fields {
 				array(
 					'id'          => '_cux_size_guide_id',
 					'label'       => __( 'Size Guide UX Block', 'commerce-ux-studio' ),
-					'placeholder' => __( 'Leave blank to use Category Default (e.g., bike-size-guide)', 'commerce-ux-studio' ),
+					'placeholder' => __( 'Paste [block id="..."], UX Block slug, or leave blank for default', 'commerce-ux-studio' ),
 					'desc_tip'    => true,
-					'description' => __( 'Flatsome UX Block slug or ID opened when clicking "Size Guide" next to the Size selector.', 'commerce-ux-studio' ),
-					'value'       => (string) get_post_meta( $product_id, '_cux_size_guide_id', true ),
+					'description' => __( 'Accepts a full Flatsome shortcode ([block id="specialized-helmet-sizing-chart"]), a UX Block slug, or a numeric ID. Opens inside a centered popup modal when shoppers click "? Size Guide".', 'commerce-ux-studio' ),
+					'value'       => $saved_size_guide,
 				)
 			);
-			?>
+
+			if ( ! empty( $ux_blocks ) ) :
+				?>
+				<p class="form-field" style="margin-top: -8px;">
+					<label for="cux_ux_block_quick_picker"><?php esc_html_e( 'Quick-Pick UX Block', 'commerce-ux-studio' ); ?></label>
+					<select id="cux_ux_block_quick_picker" style="max-width: 50%;" onchange="if(this.value){document.getElementById('_cux_size_guide_id').value='[block id=&quot;'+this.value+'&quot;]';}">
+						<option value=""><?php esc_html_e( '— Select a published Flatsome UX Block to auto-fill above —', 'commerce-ux-studio' ); ?></option>
+						<?php foreach ( $ux_blocks as $b_slug => $b_title ) : ?>
+							<option value="<?php echo esc_attr( $b_slug ); ?>">
+								<?php echo esc_html( $b_title . ' (' . $b_slug . ')' ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</p>
+			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Fetch published Flatsome `blocks` posts for the Quick-Pick dropdown.
+	 *
+	 * @return array<string, string> Map of post_name => post_title.
+	 */
+	private static function get_published_ux_blocks(): array {
+		if ( ! post_type_exists( 'blocks' ) ) {
+			return array();
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'      => 'blocks',
+				'post_status'    => 'publish',
+				'posts_per_page' => 100,
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+			)
+		);
+
+		$options = array();
+		if ( is_array( $posts ) ) {
+			foreach ( $posts as $p ) {
+				if ( is_object( $p ) && ! empty( $p->post_name ) ) {
+					$options[ (string) $p->post_name ] = (string) $p->post_title;
+				}
+			}
+		}
+
+		return $options;
 	}
 
 	/**
