@@ -1,7 +1,12 @@
 /
 
-Commerce UX Studio - WP Admin Dashboard Styles
+Commerce UX Studio - WP Admin Dashboard Styles (v2.3.2)
+
+File Path: assets/css/admin-studio.css
+
+Author:    Fareed M. Rifaideen https://fareed-rifaideen.netlify.app/
 */
+
 .cux-admin-wrap {
 max-width: 1280px;
 margin: 20px 20px 40px 0;
@@ -51,7 +56,7 @@ font-size: 13px;
 .cux-version {
 display: inline-block;
 background: #2271b1;
-color: #fff;
+color: #ffffff;
 padding: 1px 7px;
 border-radius: 10px;
 font-size: 11px;
@@ -89,7 +94,7 @@ border-bottom-color: #2271b1;
 
 .cux-grid-3 {
 display: grid;
-grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 gap: 20px;
 }
 
