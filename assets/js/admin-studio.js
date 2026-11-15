@@ -1,7 +1,8 @@
 /**
- * Commerce UX Studio - WP Admin Interactive Controller (Live AJAX Batch Sync)
+ * Commerce UX Studio - WP Admin Interactive Controller (Live AJAX Batch Sync - v2.3.2)
  *
  * File Path: assets/js/admin-studio.js
+ * Author:    Fareed M. Rifaideen <https://fareed-rifaideen.netlify.app/>
  */
 (function ($) {
 	'use strict';
