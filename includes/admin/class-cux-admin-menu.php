@@ -5,9 +5,9 @@
  * File Path: includes/admin/class-cux-admin-menu.php
  *
  * Designed for zero-learning-curve client handover across any WooCommerce store:
- * - Tab 1: Look & Feel (Card Style Picker, Brand Sync 1A/1B/1C, Header Meta 2A/2B, Swatch Contrast 4A/4B, Image Swatch Mode, Sticky Gallery)
- * - Tab 2: Stock & Gallery Autopilot (Highest-Stock Winner, Auto-Copy Color Galleries & 1-Click Sync)
- * - Tab 3: Delivery & Cross-Sells (Delivery Layout 6A/6B/6C, Universal WC Shipping Zones/Classes Sync & Size Guide Modal)
+ * - Tab 1: Look & Feel (Card Style Picker, Brand Sync, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability & Sticky Gallery)
+ * - Tab 2: Stock & Gallery Autopilot (Highest-Stock Winner, Strict Single-Variation Gallery Isolation & 1-Click Sync)
+ * - Tab 3: Delivery & Cross-Sells (Universal WooCommerce Shipping Zones, Methods, Classes & Layout Switcher)
  * - Collapsible Bottom Drawer: Developer, Google Schema & Git Tools
  *
  * @package Commerce_UX_Studio
@@ -145,6 +145,12 @@ class CUX_Admin_Menu {
 						}
 					}
 					$current['shipping_method_meta'] = $clean_methods;
+				} elseif ( 'attribute_display_map' === $clean_key && is_array( $val ) ) {
+					$clean_attr_map = array();
+					foreach ( $val as $attr_tax => $display_mode ) {
+						$clean_attr_map[ sanitize_key( (string) $attr_tax ) ] = sanitize_key( (string) $display_mode );
+					}
+					$current['attribute_display_map'] = $clean_attr_map;
 				} elseif ( is_array( $val ) ) {
 					$current[ $clean_key ] = array_map( 'sanitize_text_field', $val );
 				} else {
@@ -155,7 +161,7 @@ class CUX_Admin_Menu {
 			update_option( 'cux_global_settings', $current );
 			CUX_Inheritance_Engine::flush_runtime_cache();
 
-			add_settings_error( 'cux_messages', 'cux_saved', __( 'Settings saved! Your store layout, swatch modes, autopilot rules, and shipping cards are updated.', 'commerce-ux-studio' ), 'updated' );
+			add_settings_error( 'cux_messages', 'cux_saved', __( 'Settings saved! Your store layout, attribute display modes, availability filters, and shipping cards are updated.', 'commerce-ux-studio' ), 'updated' );
 		}
 
 		// 2. Export Configuration JSON (Settings-as-Code for GitHub).
@@ -251,13 +257,15 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Tab 1: Store Look & Feel (Visual Card Picker, Brand Sync, Header Meta, Swatch Contrast, Image Swatches & Sticky Gallery).
+	 * Tab 1: Store Look & Feel (Card Picker, Brand Sync, Per-Attribute Image/Colour/Text Mapper, Cross-Attribute Availability & Sticky Gallery).
 	 */
 	public static function render_look_and_feel_page(): void {
-		$s      = CUX_Inheritance_Engine::get_global_settings();
-		$preset = $s['catalog_card_preset'] ?? 'specialized_spec';
+		$s        = CUX_Inheritance_Engine::get_global_settings();
+		$preset   = $s['catalog_card_preset'] ?? 'specialized_spec';
+		$attr_map = isset( $s['attribute_display_map'] ) && is_array( $s['attribute_display_map'] ) ? $s['attribute_display_map'] : array();
+		$wc_attrs = function_exists( 'wc_get_attribute_taxonomies' ) ? wc_get_attribute_taxonomies() : array();
 
-		self::render_header( 'cux-studio', __( '1. Store Look & Feel — Configure Shop Cards, Swatches, Brands & Gallery UX', 'commerce-ux-studio' ) );
+		self::render_header( 'cux-studio', __( '1. Store Look & Feel — Card Styles, Attribute Display Mapper (Image / Colour / Text) & PDP UX', 'commerce-ux-studio' ) );
 		?>
 			<form method="post" class="cux-card" style="margin-bottom: 24px;">
 				<?php wp_nonce_field( 'cux_save_settings_action', 'cux_settings_nonce' ); ?>
@@ -267,42 +275,126 @@ class CUX_Admin_Menu {
 					<label style="border: 2px solid <?php echo 'specialized_spec' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'specialized_spec' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="specialized_spec" <?php checked( $preset, 'specialized_spec' ); ?> />
 						<strong><?php esc_html_e( 'Style A: Technical Spec Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Soft studio grey card, top-left status badge, color/image swatches in a dedicated row, Compare checkbox, and technical spec subtitle.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Soft studio grey card, top-left status badge, 50/50 split color swatches below image, Compare checkbox, and technical spec subtitle.', 'commerce-ux-studio' ); ?></p>
 					</label>
 
 					<label style="border: 2px solid <?php echo 'pinarello_showroom' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'pinarello_showroom' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="pinarello_showroom" <?php checked( $preset, 'pinarello_showroom' ); ?> />
 						<strong><?php esc_html_e( 'Style B: Minimalist Showroom Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Clean studio frame, top-right spec badge, color circles overlaid inside a frosted glass pill on the image corner, and uppercase brand tagline.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Clean studio frame, top-right spec badge, metallic color circles overlaid inside the bottom-left image corner, and uppercase brand tagline.', 'commerce-ux-studio' ); ?></p>
 					</label>
 
 					<label style="border: 2px solid <?php echo 'zara_quick_add' === $preset ? '#2271b1' : '#dcdcde'; ?>; background: <?php echo 'zara_quick_add' === $preset ? '#f0f6fc' : '#ffffff'; ?>; border-radius: 8px; padding: 16px; cursor: pointer; display: block;">
 						<input type="radio" name="cux_settings[catalog_card_preset]" value="zara_quick_add" <?php checked( $preset, 'zara_quick_add' ); ?> />
 						<strong><?php esc_html_e( 'Style C: Apparel Quick-Add Card', 'commerce-ux-studio' ); ?></strong>
-						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Interactive color dots with "+X more" counter and a hover/tap size bar (S1–S6 / XS–XXL) for 1-click catalog Add to Cart.', 'commerce-ux-studio' ); ?></p>
+						<p class="cux-muted" style="margin: 8px 0 0;"><?php esc_html_e( 'Interactive color dots with "+X more" counter and a hover/tap size bar (XS–XXL) for 1-click catalog Add to Cart.', 'commerce-ux-studio' ); ?></p>
 					</label>
 				</div>
 
-				<h3><?php esc_html_e( 'Step 2: Single Product Header, WooCommerce Brand Sync & Sticky Gallery', 'commerce-ux-studio' ); ?></h3>
+				<h3><?php esc_html_e( 'Step 2: Choose Image, Colour, or Text Display for Each Variation Attribute', 'commerce-ux-studio' ); ?></h3>
+				<p class="cux-muted" style="margin-bottom: 12px;">
+					<?php esc_html_e( 'Decide how each product attribute is displayed on the Single Product Page. You can also override this per individual product inside Product data > General.', 'commerce-ux-studio' ); ?>
+				</p>
+
+				<?php if ( ! empty( $wc_attrs ) ) : ?>
+					<table class="widefat striped" style="max-width: 880px; margin-bottom: 24px; border-radius: 6px; overflow: hidden;">
+						<thead>
+							<tr>
+								<th style="width: 220px;"><?php esc_html_e( 'Attribute Name', 'commerce-ux-studio' ); ?></th>
+								<th style="width: 160px;"><?php esc_html_e( 'Taxonomy Slug', 'commerce-ux-studio' ); ?></th>
+								<th><?php esc_html_e( 'Frontend Display Style (Image / Colour / Text)', 'commerce-ux-studio' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php
+							foreach ( $wc_attrs as $tax ) :
+								$tax_name = function_exists( 'wc_attribute_taxonomy_name' ) ? wc_attribute_taxonomy_name( $tax->attribute_name ) : 'pa_' . $tax->attribute_name;
+								$tax_key  = sanitize_key( $tax_name );
+								$is_color = ( false !== strpos( $tax_key, 'color' ) || false !== strpos( $tax_key, 'colour' ) );
+								$def_mode = $is_color ? 'auto_detect' : 'text_box';
+								$cur_mode = $attr_map[ $tax_key ] ?? $def_mode;
+								?>
+								<tr>
+									<td><strong><?php echo esc_html( $tax->attribute_label ); ?></strong></td>
+									<td><code><?php echo esc_html( $tax_name ); ?></code></td>
+									<td>
+										<select name="cux_settings[attribute_display_map][<?php echo esc_attr( $tax_key ); ?>]" style="width: 100%; max-width: 460px;">
+											<option value="auto_detect" <?php selected( $cur_mode, 'auto_detect' ); ?>><?php esc_html_e( 'Follow Default Visual Swatch Mode (Below)', 'commerce-ux-studio' ); ?></option>
+											<option value="auto_variation_image" <?php selected( $cur_mode, 'auto_variation_image' ); ?>><?php esc_html_e( 'Variation Image — Auto-use Variation Primary Photo (52×52px Tile)', 'commerce-ux-studio' ); ?></option>
+											<option value="term_image" <?php selected( $cur_mode, 'term_image' ); ?>><?php esc_html_e( 'Custom Attribute Image — Uploaded Term Image (Fallback to Variation Photo)', 'commerce-ux-studio' ); ?></option>
+											<option value="color_circle" <?php selected( $cur_mode, 'color_circle' ); ?>><?php esc_html_e( 'Colour / Split / Gradient Circle (38×38px Swatch)', 'commerce-ux-studio' ); ?></option>
+											<option value="text_box" <?php selected( $cur_mode, 'text_box' ); ?>><?php esc_html_e( 'Text Button / Pill Box (Shows Attribute Value Text)', 'commerce-ux-studio' ); ?></option>
+										</select>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php endif; ?>
+
+				<h3><?php esc_html_e( 'Step 3: Single Product UI/UX, Availability Filtering & Gallery Isolation', 'commerce-ux-studio' ); ?></h3>
 				<table class="form-table">
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Native WooCommerce Brand Sync', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Cross-Attribute Availability Filtering (Size ↔ Colour)', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<select name="cux_settings[brand_sync_display]" style="max-width: 100%;">
-								<option value="eyebrow_1a" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'eyebrow_1a' ); ?>><?php esc_html_e( 'Option 1A: Clickable Brand Eyebrow Above Product Title (PDP + Shop Cards + Google Schema)', 'commerce-ux-studio' ); ?></option>
-								<option value="breadcrumb_1b" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'breadcrumb_1b' ); ?>><?php esc_html_e( 'Option 1B: Brand Pill Next to Breadcrumbs (PDP + Shop Cards + Google Schema)', 'commerce-ux-studio' ); ?></option>
-								<option value="cards_schema_1c" <?php selected( $s['brand_sync_display'] ?? 'eyebrow_1a', 'cards_schema_1c' ); ?>><?php esc_html_e( 'Option 1C: Shop Cards & Google Schema Only (Hide Brand on Single Product Header)', 'commerce-ux-studio' ); ?></option>
+							<select name="cux_settings[cross_attr_oos_mode]">
+								<option value="smart_switch" <?php selected( $s['cross_attr_oos_mode'] ?? 'smart_switch', 'smart_switch' ); ?>><?php esc_html_e( 'Mode 1 (Smart Switch — Recommended): Cross out unavailable options in selected Size/Colour, auto-switch if clicked', 'commerce-ux-studio' ); ?></option>
+								<option value="strict_lock" <?php selected( $s['cross_attr_oos_mode'] ?? 'smart_switch', 'strict_lock' ); ?>><?php esc_html_e( 'Mode 2 (Strict Lock): Cross out and disable unavailable combinations until another option is chosen', 'commerce-ux-studio' ); ?></option>
 							</select>
-							<p class="description"><?php esc_html_e( 'Automatically syncs assigned Brands from Products > Brands (product_brand taxonomy).', 'commerce-ux-studio' ); ?></p>
+							<p class="description"><?php esc_html_e( 'When you select a Size (e.g., S2), colours that are out of stock or unavailable in S2 immediately show a diagonal strike-through line.', 'commerce-ux-studio' ); ?></p>
 						</td>
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Product Header Badges & Subtitles', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Single Product Image Gallery Isolation', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<select name="cux_settings[pdp_header_meta_mode]" style="max-width: 100%;">
-								<option value="subtitle_only_2a" <?php selected( $s['pdp_header_meta_mode'] ?? 'subtitle_only_2a', 'subtitle_only_2a' ); ?>><?php esc_html_e( 'Option 2A: Badges on Image/Shop Cards + Clean 1-Line Spec Subtitle on Single Product Page', 'commerce-ux-studio' ); ?></option>
-								<option value="cards_only_2b" <?php selected( $s['pdp_header_meta_mode'] ?? 'subtitle_only_2a', 'cards_only_2b' ); ?>><?php esc_html_e( 'Option 2B: Show Custom Badges & Subtitles on Shop Cards Only (100% Clean Single Product Title)', 'commerce-ux-studio' ); ?></option>
+							<select name="cux_settings[pdp_gallery_isolation]">
+								<option value="strict_variation" <?php selected( $s['pdp_gallery_isolation'] ?? 'strict_variation', 'strict_variation' ); ?>><?php esc_html_e( 'Strict Selected Variation Only (Show ONLY the selected variation’s image & its own variation gallery)', 'commerce-ux-studio' ); ?></option>
+								<option value="colorway_group" <?php selected( $s['pdp_gallery_isolation'] ?? 'strict_variation', 'colorway_group' ); ?>><?php esc_html_e( 'Colorway Group Gallery (Share extra gallery angles across all sizes of the selected colour)', 'commerce-ux-studio' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Ensures thumbnails from other unselected variations or colours never clutter the Single Product gallery.', 'commerce-ux-studio' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Default Visual Swatch Display Mode', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[visual_swatch_mode]">
+								<option value="smart_hybrid" <?php selected( $s['visual_swatch_mode'] ?? 'smart_hybrid', 'smart_hybrid' ); ?>><?php esc_html_e( 'Mode A (Smart Hybrid): Custom Term Image → Colour/Gradient Circle → Auto Variation Photo', 'commerce-ux-studio' ); ?></option>
+								<option value="variation_image" <?php selected( $s['visual_swatch_mode'] ?? 'smart_hybrid', 'variation_image' ); ?>><?php esc_html_e( 'Mode B (Auto Variation Product Photos): Always show 52×52px Variation Thumbnail Images', 'commerce-ux-studio' ); ?></option>
+								<option value="color_circle" <?php selected( $s['visual_swatch_mode'] ?? 'smart_hybrid', 'color_circle' ); ?>><?php esc_html_e( 'Mode C (Colour / Split / Gradient Circles): 38×38px circular colour swatches', 'commerce-ux-studio' ); ?></option>
+								<option value="text_box" <?php selected( $s['visual_swatch_mode'] ?? 'smart_hybrid', 'text_box' ); ?>><?php esc_html_e( 'Mode D (Text Buttons): Render all attributes as crisp text button pills', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Selected vs. Deselected Swatch Contrast', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[swatch_active_style]">
+								<option value="option_4a" <?php selected( $s['swatch_active_style'] ?? 'option_4a', 'option_4a' ); ?>><?php esc_html_e( 'Option 4A (Recommended): Solid Dark Fill + Corner Checkmark Badge (✓) on Selected Swatches', 'commerce-ux-studio' ); ?></option>
+								<option value="option_4b" <?php selected( $s['swatch_active_style'] ?? 'option_4a', 'option_4b' ); ?>><?php esc_html_e( 'Option 4B: Framed 2.5px Dark Border + Bottom Indicator Dot (•) Under Selected Swatches', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Native WooCommerce Brand Sync', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[brand_sync_display]">
+								<option value="option_1a" <?php selected( $s['brand_sync_display'] ?? 'option_1a', 'option_1a' ); ?>><?php esc_html_e( 'Option 1A: Clickable Brand Eyebrow / Logo Above Product Title (PDP + Shop Cards + Schema)', 'commerce-ux-studio' ); ?></option>
+								<option value="option_1b" <?php selected( $s['brand_sync_display'] ?? 'option_1a', 'option_1b' ); ?>><?php esc_html_e( 'Option 1B: Brand Pill Next to Breadcrumbs (PDP + Shop Cards + Schema)', 'commerce-ux-studio' ); ?></option>
+								<option value="option_1c" <?php selected( $s['brand_sync_display'] ?? 'option_1a', 'option_1c' ); ?>><?php esc_html_e( 'Option 1C: Shop Cards & Google Schema Only (Hidden on Single Product Header)', 'commerce-ux-studio' ); ?></option>
+							</select>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Single Product Header Badges & Subtitles', 'commerce-ux-studio' ); ?></th>
+						<td>
+							<select name="cux_settings[pdp_header_meta_mode]">
+								<option value="option_2a" <?php selected( $s['pdp_header_meta_mode'] ?? 'option_2a', 'option_2a' ); ?>><?php esc_html_e( 'Option 2A: Badges on Shop Cards + Clean 1-Line Spec Subtitle on Product Page', 'commerce-ux-studio' ); ?></option>
+								<option value="option_2b" <?php selected( $s['pdp_header_meta_mode'] ?? 'option_2a', 'option_2b' ); ?>><?php esc_html_e( 'Option 2B: All Custom Card Fields on Shop Cards Only (100% Clean Product Title & Price)', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
@@ -311,49 +403,24 @@ class CUX_Admin_Menu {
 						<th scope="row"><?php esc_html_e( 'Desktop Sticky Product Gallery', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[sticky_desktop_gallery]">
-								<option value="yes" <?php selected( $s['sticky_desktop_gallery'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Keep left Product Gallery frozen in view while right summary scrolls)', 'commerce-ux-studio' ); ?></option>
+								<option value="yes" <?php selected( $s['sticky_desktop_gallery'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Keep left Product Gallery frozen while scrolling down the right summary column)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['sticky_desktop_gallery'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled (Standard page scroll)', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
-				</table>
-
-				<h3 style="margin-top: 20px;"><?php esc_html_e( 'Step 3: Variation Swatch Images, Active Contrast & Hover Preferences', 'commerce-ux-studio' ); ?></h3>
-				<table class="form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Color / Visual Swatch Display Mode', 'commerce-ux-studio' ); ?></th>
-						<td>
-							<select name="cux_settings[visual_swatch_mode]" style="max-width: 100%;">
-								<option value="hybrid_auto" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'hybrid_auto' ); ?>><?php esc_html_e( 'Smart Hybrid Mode (Custom Term Image -> Color/Split Circle -> Auto Variation Photo)', 'commerce-ux-studio' ); ?></option>
-								<option value="variation_photo" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'variation_photo' ); ?>><?php esc_html_e( 'Auto Variation Product Photos (Displays each variation’s main product photo in a 48x48px tile)', 'commerce-ux-studio' ); ?></option>
-								<option value="color_circle" <?php selected( $s['visual_swatch_mode'] ?? 'hybrid_auto', 'color_circle' ); ?>><?php esc_html_e( 'Color / Split / Gradient Circles Only (38x38px circular swatches)', 'commerce-ux-studio' ); ?></option>
-							</select>
-							<p class="description"><?php esc_html_e( 'Choose "Auto Variation Product Photos" to automatically use your variation images instead of color circles without uploading extra swatch files!', 'commerce-ux-studio' ); ?></p>
-						</td>
-					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Selected vs. Deselected Swatch Contrast', 'commerce-ux-studio' ); ?></th>
-						<td>
-							<select name="cux_settings[swatch_active_style]" style="max-width: 100%;">
-								<option value="checkmark_4a" <?php selected( $s['swatch_active_style'] ?? 'checkmark_4a', 'checkmark_4a' ); ?>><?php esc_html_e( 'Option 4A: Solid Dark Fill + Corner Checkmark Badge (✓) on Selected Swatches (Recommended)', 'commerce-ux-studio' ); ?></option>
-								<option value="border_dot_4b" <?php selected( $s['swatch_active_style'] ?? 'checkmark_4a', 'border_dot_4b' ); ?>><?php esc_html_e( 'Option 4B: Framed Bold 2.5px Border + Bottom Active Indicator Dot (•)', 'commerce-ux-studio' ); ?></option>
-							</select>
-						</td>
-					</tr>
-
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Shop Card Hover Image ("Back Image - Fade In")', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Shop Card Hover Image', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[catalog_hover_mode]">
-								<option value="angle_2" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'angle_2' ); ?>><?php esc_html_e( 'Option A: Show 2nd Angle of Winning Color on Card Hover', 'commerce-ux-studio' ); ?></option>
-								<option value="second_color" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'second_color' ); ?>><?php esc_html_e( 'Option B: Show Main Photo of 2nd In-Stock Color on Card Hover', 'commerce-ux-studio' ); ?></option>
+								<option value="angle_2" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'angle_2' ); ?>><?php esc_html_e( 'Option A: Show 2nd Angle of Winning Color', 'commerce-ux-studio' ); ?></option>
+								<option value="second_color" <?php selected( $s['catalog_hover_mode'] ?? 'angle_2', 'second_color' ); ?>><?php esc_html_e( 'Option B: Show Main Photo of 2nd In-Stock Color', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Out-of-Stock Swatch Behavior', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Out-of-Stock Swatch Behavior (Entire Color Out of Stock)', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[oos_swatch_behavior]">
 								<option value="clickable_preview" <?php selected( $s['oos_swatch_behavior'] ?? 'clickable_preview', 'clickable_preview' ); ?>><?php esc_html_e( 'Clickable Preview (Allow viewing photos + show Out of Stock / Restock notice)', 'commerce-ux-studio' ); ?></option>
@@ -426,11 +493,21 @@ class CUX_Admin_Menu {
 						</tr>
 
 						<tr>
-							<th scope="row"><?php esc_html_e( 'What Shows in the Main Product Gallery', 'commerce-ux-studio' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'Single Product Page Gallery Isolation', 'commerce-ux-studio' ); ?></th>
+							<td>
+								<select name="cux_settings[pdp_gallery_isolation]">
+									<option value="strict_variation" <?php selected( $s['pdp_gallery_isolation'] ?? 'strict_variation', 'strict_variation' ); ?>><?php esc_html_e( 'Strict Selected Variation Only (Show ONLY the selected variation’s image & its own gallery)', 'commerce-ux-studio' ); ?></option>
+									<option value="colorway_group" <?php selected( $s['pdp_gallery_isolation'] ?? 'strict_variation', 'colorway_group' ); ?>><?php esc_html_e( 'Colorway Group Gallery (Show all angles of the selected color)', 'commerce-ux-studio' ); ?></option>
+								</select>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Parent Gallery Storage Mode (For Shop Hover)', 'commerce-ux-studio' ); ?></th>
 							<td>
 								<select name="cux_settings[parent_gallery_mode]">
-									<option value="winner_plus_colors" <?php selected( $s['parent_gallery_mode'] ?? 'winner_plus_colors', 'winner_plus_colors' ); ?>><?php esc_html_e( 'Winning Color Angles + Main Photo of Other In-Stock Colors (Excludes Out-of-Stock)', 'commerce-ux-studio' ); ?></option>
-									<option value="winner_only" <?php selected( $s['parent_gallery_mode'] ?? 'winner_plus_colors', 'winner_only' ); ?>><?php esc_html_e( 'Winning Color Angles Only', 'commerce-ux-studio' ); ?></option>
+									<option value="winner_only" <?php selected( $s['parent_gallery_mode'] ?? 'winner_only', 'winner_only' ); ?>><?php esc_html_e( 'Winning Color Angles Only', 'commerce-ux-studio' ); ?></option>
+									<option value="winner_plus_colors" <?php selected( $s['parent_gallery_mode'] ?? 'winner_only', 'winner_plus_colors' ); ?>><?php esc_html_e( 'Winning Color Angles + Main Photo of Other In-Stock Colors', 'commerce-ux-studio' ); ?></option>
 								</select>
 							</td>
 						</tr>
@@ -491,7 +568,6 @@ class CUX_Admin_Menu {
 						);
 					}
 				}
-				// Also include Zone 0 ("Locations not covered by your other zones").
 				$zone_zero    = new WC_Shipping_Zone( 0 );
 				$zero_methods = $zone_zero->get_shipping_methods( false );
 				if ( ! empty( $zero_methods ) ) {
@@ -509,7 +585,7 @@ class CUX_Admin_Menu {
 			$discovered_zones = array();
 		}
 
-		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box, Size Guide Modal & Complete Your Ride', 'commerce-ux-studio' ) );
+		self::render_header( 'cux-pdp-fulfilment', __( '3. Delivery Box & Complete Your Ride', 'commerce-ux-studio' ) );
 		?>
 			<div class="cux-card" style="margin-bottom: 18px; background: #f0f6fc; border-left: 4px solid #2271b1;">
 				<strong><?php esc_html_e( '100% Universal WooCommerce Shipping Zones, Methods & Classes Sync:', 'commerce-ux-studio' ); ?></strong>
@@ -528,19 +604,19 @@ class CUX_Admin_Menu {
 						<th scope="row"><?php esc_html_e( 'Show Delivery Method Box on Product Pages', 'commerce-ux-studio' ); ?></th>
 						<td>
 							<select name="cux_settings[enable_delivery_block]">
-								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup switcher above Add to Cart)', 'commerce-ux-studio' ); ?></option>
+								<option value="yes" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Show interactive Delivery & Pickup options above Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_delivery_block'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Delivery & Pickup Switcher Layout Style', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Delivery & Pickup Switcher UI Layout', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<select name="cux_settings[delivery_layout_style]" style="max-width: 100%;">
-								<option value="stacked_rows_6a" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'stacked_rows_6a' ); ?>><?php esc_html_e( 'Option 6A: Full-Width Stacked Horizontal Radio Rows (No text wrapping — Recommended)', 'commerce-ux-studio' ); ?></option>
-								<option value="tabs_pill_6b" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'tabs_pill_6b' ); ?>><?php esc_html_e( 'Option 6B: Compact 2-Tab Segmented Switcher Pill + Single Live Status Line', 'commerce-ux-studio' ); ?></option>
-								<option value="cards_2col_6c" <?php selected( $s['delivery_layout_style'] ?? 'stacked_rows_6a', 'cards_2col_6c' ); ?>><?php esc_html_e( 'Option 6C: Redesigned 2-Column Cards (Full-width title on top + Lead time & price on bottom)', 'commerce-ux-studio' ); ?></option>
+							<select name="cux_settings[delivery_layout_style]">
+								<option value="option_6a" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6a' ); ?>><?php esc_html_e( 'Option 6A (Recommended): Full-Width Stacked Horizontal Radio Rows (Zero Text Wrapping)', 'commerce-ux-studio' ); ?></option>
+								<option value="option_6b" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6b' ); ?>><?php esc_html_e( 'Option 6B: Compact 2-Tab Segmented Switcher Pill + Single Status Row', 'commerce-ux-studio' ); ?></option>
+								<option value="option_6c" <?php selected( $s['delivery_layout_style'] ?? 'option_6a', 'option_6c' ); ?>><?php esc_html_e( 'Option 6C: Redesigned 2-Column Cards (Full-Width Top Title + Bottom Badge)', 'commerce-ux-studio' ); ?></option>
 							</select>
 						</td>
 					</tr>
@@ -591,10 +667,10 @@ class CUX_Admin_Menu {
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Global Default Size Guide (UX Block)', 'commerce-ux-studio' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Global Size Guide UX Block / Shortcode', 'commerce-ux-studio' ); ?></th>
 						<td>
-							<input type="text" name="cux_settings[default_size_guide]" value="<?php echo esc_attr( $s['default_size_guide'] ?? '' ); ?>" class="regular-text" placeholder='e.g., [block id="bike-size-guide"] or slug' />
-							<p class="description"><?php esc_html_e( 'Accepts a Flatsome shortcode ([block id="..."]), UX Block slug, or numeric ID. Opens inside a centered Lightbox Modal when clicking "? Size Guide".', 'commerce-ux-studio' ); ?></p>
+							<input type="text" name="cux_settings[default_size_guide]" value="<?php echo esc_attr( $s['default_size_guide'] ?? '' ); ?>" class="regular-text" placeholder='e.g., [block id="size-guide"] or block slug' />
+							<p class="description"><?php esc_html_e( 'Accepts a Flatsome shortcode [block id="..."], UX Block slug, or numeric ID. Opens in a centered modal when clicking "? Size Guide".', 'commerce-ux-studio' ); ?></p>
 						</td>
 					</tr>
 
@@ -605,7 +681,6 @@ class CUX_Admin_Menu {
 								<option value="yes" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'yes' ); ?>><?php esc_html_e( 'Enabled (Automatically displays native WooCommerce Cross-sells below Add to Cart)', 'commerce-ux-studio' ); ?></option>
 								<option value="no" <?php selected( $s['enable_complete_ride'] ?? 'yes', 'no' ); ?>><?php esc_html_e( 'Disabled', 'commerce-ux-studio' ); ?></option>
 							</select>
-							<input type="text" name="cux_settings[cross_sell_heading]" value="<?php echo esc_attr( $s['cross_sell_heading'] ?? 'Complete Your Ride' ); ?>" class="regular-text" style="margin-left: 10px;" placeholder="Complete Your Ride" />
 						</td>
 					</tr>
 				</table>
@@ -681,7 +756,7 @@ class CUX_Admin_Menu {
 											<input type="text"
 												name="cux_settings[shipping_method_meta][<?php echo esc_attr( $rate_key ); ?>][subtitle]"
 												value="<?php echo esc_attr( $saved_row['subtitle'] ?? '' ); ?>"
-												placeholder="<?php echo esc_attr( $is_pickup ? __( 'Available for store pickup', 'commerce-ux-studio' ) : __( 'Auto-calculates class shipping rate', 'commerce-ux-studio' ) ); ?>"
+												placeholder="<?php echo esc_attr( $is_pickup ? __( 'Available for store pickup', 'commerce-ux-studio' ) : __( 'Auto-calculates class shipping rate', 'commerce-ux-studio' ); ?>"
 												class="regular-text" style="width:100%;" />
 										</td>
 									</tr>
@@ -717,7 +792,7 @@ class CUX_Admin_Menu {
 	}
 
 	/**
-	 * Collapsible Developer, Google Schema & Git Health Drawer.
+	 * Collapsible Developer, Schema & Git Health Drawer.
 	 */
 	private static function render_developer_drawer(): void {
 		$db_health = class_exists( 'CUX_Activator' ) ? CUX_Activator::get_database_health() : array(
